@@ -5,7 +5,7 @@
 Reading and writing of tabular data.
 
 - DSV (Delimiter-separated values): CSV (comma-seperated values), TSV (tab-seperated values)
-- Fixed with: formats with columns of fixed width
+- Fixed width: formats with columns of fixed width
 
 ```
 git clone https://github.com/arjantop/rust-tabular
