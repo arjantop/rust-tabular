@@ -26,5 +26,4 @@ digraph finite_state_machine {
     QUOTED -> END_OR_ESCAPED [ label = "escape_char,quote_char" ];
     END_OR_ESCAPED -> QUOTED_END;
     END_OR_ESCAPED -> ESCAPED;
-    END_OR_ESCAPED -> ERROR;
 }

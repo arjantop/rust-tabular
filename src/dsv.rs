@@ -50,18 +50,14 @@ struct Columns<'a, R> {
     config: Config,
     row_done: bool,
     column: uint,
-    last: bool,
+    pos: uint
 }
 
 impl<'a, R: Buffer> Columns<'a, R> {
-    fn check_eof(&mut self, err: IoError, allow_empty: bool, res: ~str) -> IoResult<~str> {
-        if !self.row_done && err.kind == io::EndOfFile && (res.len() > 0 || allow_empty) {
-            self.row_done = true;
-            self.last = true;
-            Ok(res)
-        } else {
-            Err(err)
-        }
+    fn read_char(&mut self) -> IoResult<char> {
+        let res = self.reader.read_char();
+        if res.is_ok() { self.pos += 1; }
+        res
     }
 
     fn quoted_end(&mut self, next: IoResult<char>, res: ~str) -> IoResult<~str> {
@@ -84,7 +80,6 @@ impl<'a, R: Buffer> Columns<'a, R> {
             }
             Err(ref err) if err.kind == io::EndOfFile => {
                 self.row_done = true;
-                self.last = true;
                 Ok(res)
             }
             Err(err) => Err(err)
@@ -94,10 +89,10 @@ impl<'a, R: Buffer> Columns<'a, R> {
     fn read_quoted_column(&mut self) -> IoResult<~str> {
         let mut col = ~"";
         loop {
-            match self.reader.read_char() {
+            match self.read_char() {
                 Ok(ch) => {
                     if self.config.escape_char() != Some(self.config.quote_char) && Some(ch) == self.config.escape_char() {
-                        match self.reader.read_char() {
+                        match self.read_char() {
                             Ok(quote) if quote == self.config.quote_char => col.push_char(quote),
                             _ => return Err(IoError {
                                 kind: io::InvalidInput,
@@ -107,10 +102,10 @@ impl<'a, R: Buffer> Columns<'a, R> {
                         }
 
                     } else if self.config.escape_char() != Some(self.config.quote_char) && ch == self.config.quote_char {
-                        let next = self.reader.read_char();
+                        let next = self.read_char();
                         return self.quoted_end(next, col)
                     } else if ch == self.config.quote_char {
-                        let next = self.reader.read_char();
+                        let next = self.read_char();
                         match next {
                             Ok(next) if next == self.config.quote_char => {
                                 col.push_char(next);
@@ -132,7 +127,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
         let res = match self.config.line_terminator {
             LF => Ok(()),
             CRLF => {
-                match self.reader.read_char() {
+                match self.read_char() {
                     Ok('\n') => Ok(()),
                     Ok(_) => Err(IoError {
                         kind: io::InvalidInput,
@@ -147,6 +142,15 @@ impl<'a, R: Buffer> Columns<'a, R> {
             self.row_done = true;
         }
         res
+    }
+
+    fn check_eof(&mut self, err: IoError, allow_empty: bool, res: ~str) -> IoResult<~str> {
+        if !self.row_done && err.kind == io::EndOfFile && (res.len() > 0 || allow_empty) {
+            self.row_done = true;
+            Ok(res)
+        } else {
+            Err(err)
+        }
     }
 
     fn read_unquoted_column(&mut self, mut curr: IoResult<char>) -> IoResult<~str> {
@@ -164,7 +168,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
                     } else {
                         break
                     }
-                    curr = self.reader.read_char();
+                    curr = self.read_char();
                 }
                 Err(err) => return self.check_eof(err, self.column > 0, col)
             }
@@ -173,11 +177,13 @@ impl<'a, R: Buffer> Columns<'a, R> {
     }
 
     fn read_column(&mut self) -> IoResult<~str> {
-        let res = match self.reader.read_char() {
+        let res = match self.read_char() {
             Ok(ch) if self.config.quote_char == ch => self.read_quoted_column(),
             res => self.read_unquoted_column(res)
         };
-        self.column += 1;
+        if res.is_ok() {
+            self.column += 1;
+        }
         res
     }
 }
@@ -188,9 +194,13 @@ impl<'a, R: Buffer> Iterator<IoResult<~str>> for Columns<'a, R> {
             return None
         }
         match self.read_column() {
-            err@Err(_) => {
+            Err(err) => {
                 self.row_done = true;
-                Some(err)
+                if self.pos == 0 && err.kind == io::EndOfFile {
+                    None
+                } else {
+                    Some(Err(err))
+                }
             }
             res => Some(res)
         }
@@ -199,13 +209,13 @@ impl<'a, R: Buffer> Iterator<IoResult<~str>> for Columns<'a, R> {
 
 pub type Row = Vec<~str>;
 
-fn read_row_internal<R: Buffer>(config: Config, reader: &mut R) -> IoResult<(bool, Row)> {
+pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
     let mut cols = Columns {
         reader: reader,
         config: config,
         row_done: false,
         column: 0,
-        last: false
+        pos: 0
     };
     let mut res = Vec::new();
     for col in cols {
@@ -214,15 +224,7 @@ fn read_row_internal<R: Buffer>(config: Config, reader: &mut R) -> IoResult<(boo
             Err(err) => return Err(err)
         }
     }
-    Ok((cols.last, res))
-}
-
-pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
-    match read_row_internal(config, reader) {
-        Ok((_, row)) => Ok(row),
-        Err(err) => Err(err)
-    }
-
+    Ok(res)
 }
 
 pub struct Rows<R> {
@@ -236,11 +238,14 @@ impl<R: Buffer> Iterator<IoResult<Row>> for Rows<R> {
         if self.done {
             return None
         }
-        let row = read_row_internal(self.config, &mut self.reader);
-        match row {
-            Ok((last, row)) => {
-                self.done = last;
-                Some(Ok(row))
+        match read_row(self.config, &mut self.reader) {
+            Ok(row) => {
+                self.done = row.len() == 0;
+                if self.done {
+                    None
+                } else {
+                    Some(Ok(row))
+                }
             }
             Err(err) => {
                 self.done = true;
@@ -268,7 +273,7 @@ mod test {
 
     fn assert_colmatch(cfg: Config, row: &str, cols: &[IoResult<~str>]) {
         let mut reader = io::BufReader::new(row.as_bytes());
-        let mut columns = Columns {reader: &mut reader, config: cfg, row_done: false, column: 0, last: false};
+        let mut columns = Columns {reader: &mut reader, config: cfg, row_done: false, column: 0, pos: 0};
         let result: Vec<IoResult<~str>> = columns.collect();
         assert_eq!(cols, result.as_slice())
     }
@@ -291,7 +296,7 @@ mod test {
 
     #[test]
     fn empty_column() {
-        assert_colmatch(CSV, "", [Err(EOF_ERROR.clone())]);
+        assert_colmatch(CSV, "", []);
     }
 
     #[test]
@@ -364,28 +369,19 @@ mod test {
     }
 
     #[test]
-    fn multi_column_quoted() {
-        assert_colmatch(CSV, "\"foo\",\"bar\"", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(QUOTE_TILDE, "~foo~,~bar~", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(Config {delimiter: ';', ..QUOTE_TILDE}, "~foo~;~bar~", [Ok(~"foo"), Ok(~"bar")]);
+    fn single_column_quoted_invalid_line_end() {
+        assert_colmatch(CSV, "\"abc\"\r\r", [Err(INVALID_LINE_ENDING.clone())]);
     }
 
     #[test]
-    fn multi_column_quoted_line_end() {
-        assert_colmatch(CSV, "\"foo\",\"bar\"\r\n", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(QUOTE_TILDE, "~foo~,~bar~\r\n", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(Config {delimiter: ';', line_terminator: LF, ..QUOTE_TILDE}, "~foo~;~bar~", [Ok(~"foo"), Ok(~"bar")]);
+    fn single_column_quoted_allow_line_ending_inside() {
+        assert_colmatch(CSV, "\"Hello\r\nworld\"", [Ok(~"Hello\r\nworld")]);
     }
 
     #[test]
     fn single_column_quoted_escaped() {
         assert_colmatch(CSV, r#""Hello, ""rust"" world""#, [Ok(~"Hello, \"rust\" world")]);
         assert_colmatch(Config {escape: Char('$'), ..CSV}, r#""Hello, $"rust$" world""#, [Ok(~"Hello, \"rust\" world")]);
-    }
-
-    #[test]
-    fn single_column_quoted_allow_line_ending_inside() {
-        assert_colmatch(CSV, "\"Hello\r\nworld\"", [Ok(~"Hello\r\nworld")]);
     }
 
     #[test]
@@ -410,13 +406,17 @@ mod test {
     }
 
     #[test]
-    fn single_column_with_line_ending_error() {
-        assert_colmatch(CSV, "rust\r\r", [Err(IoError {kind: io::InvalidInput, desc: "Invalid line ending", detail: None})]);
+    fn multi_column_quoted() {
+        assert_colmatch(CSV, "\"foo\",\"bar\"", [Ok(~"foo"), Ok(~"bar")]);
+        assert_colmatch(QUOTE_TILDE, "~foo~,~bar~", [Ok(~"foo"), Ok(~"bar")]);
+        assert_colmatch(Config {delimiter: ';', ..QUOTE_TILDE}, "~foo~;~bar~", [Ok(~"foo"), Ok(~"bar")]);
     }
 
     #[test]
-    fn single_column_quoted_with_line_ending_error() {
-        assert_colmatch(CSV, "\"rust\"\r\r", [Err(IoError {kind: io::InvalidInput, desc: "Invalid line ending", detail: None})]);
+    fn multi_column_quoted_line_end() {
+        assert_colmatch(CSV, "\"foo\",\"bar\"\r\n", [Ok(~"foo"), Ok(~"bar")]);
+        assert_colmatch(QUOTE_TILDE, "~foo~,~bar~\r\n", [Ok(~"foo"), Ok(~"bar")]);
+        assert_colmatch(Config {delimiter: ';', line_terminator: LF, ..QUOTE_TILDE}, "~foo~;~bar~", [Ok(~"foo"), Ok(~"bar")]);
     }
 
     #[test]
@@ -467,6 +467,11 @@ mod test {
     #[test]
     fn multiple_rows() {
         assert_rowmatch("foo,\"bar\"\r\n\"baz\",qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+    }
+
+    #[test]
+    fn multiple_rows_empty_line_ending() {
+        assert_rowmatch("foo,\"bar\"\r\n\"baz\",qux\r\n", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
     }
 
     #[test]
