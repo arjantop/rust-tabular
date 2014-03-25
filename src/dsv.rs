@@ -9,23 +9,41 @@ pub enum Escape {
     Disallowed,
 }
 
+#[deriving(Eq, Show)]
+pub enum Quote {
+    Never,
+    Always,
+    Minimal,
+}
+
 pub enum LineTerminator {
     LF,
     CRLF
+}
+
+impl LineTerminator {
+    fn as_str(&self) -> &'static str {
+        match *self {
+            LF => "\n",
+            CRLF => "\r\n"
+        }
+    }
 }
 
 pub static CSV: Config = Config {
     delimiter: ',',
     quote_char: '"',
     escape: Double,
-    line_terminator: CRLF
+    line_terminator: CRLF,
+    quote: Minimal
 };
 
 pub struct Config {
     delimiter: char,
     quote_char: char,
     escape: Escape,
-    line_terminator: LineTerminator
+    line_terminator: LineTerminator,
+    quote: Quote,
 }
 
 impl Config {
@@ -263,6 +281,77 @@ pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
     }
 }
 
+fn is_quote_required(config: Config, col: &str) -> bool {
+    if config.quote == Always {
+        return true
+    }
+    col.chars().any(|ch| {
+        ch == config.delimiter || config.is_line_terminator_start(ch)
+    })
+}
+static MUST_QUOTE: IoError = IoError {
+    kind: io::InvalidInput,
+    desc: "Value should be quoted",
+    detail: None
+};
+
+static ESCAPE_DISALLOWED: IoError = IoError {
+    kind: io::InvalidInput,
+    desc: "Escaping disallowed",
+    detail: None
+};
+
+static ESCAPE_CHAR_IN_QUOTE: IoError = IoError {
+    kind: io::InvalidInput,
+    desc: "Escape characted not allowed in quote",
+    detail: None
+};
+
+fn write_column(config: Config, writer: &mut Writer, col: &str) -> IoResult<()> {
+    if is_quote_required(config, col.as_slice()) {
+        if config.quote == Never {
+            Err(MUST_QUOTE.clone())
+        } else {
+            try!(writer.write_char(config.quote_char));
+            for ch in col.chars() {
+                if ch == config.quote_char {
+                    if config.escape_char().is_some() {
+                        try!(writer.write_char(config.escape_char().unwrap()));
+                    } else {
+                        return Err(ESCAPE_DISALLOWED.clone())
+                    }
+                } else if Some(ch) == config.escape_char() {
+                    return Err(ESCAPE_CHAR_IN_QUOTE.clone())
+                }
+                try!(writer.write_char(ch));
+            }
+            writer.write_char(config.quote_char)
+        }
+    } else {
+        writer.write(col.as_bytes())
+    }
+}
+
+pub fn write_row(config: Config, writer: &mut Writer, row: Row) -> IoResult<()> {
+    let mut first = true;
+    for col in row.iter() {
+        if !first {
+            try!(writer.write_char(config.delimiter));
+        }
+        try!(write_column(config, writer, col.as_slice()));
+        first = false;
+    }
+    Ok(())
+}
+
+pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
+    for row in rows {
+        try!(write_row(config, writer, row));
+        try!(writer.write_str(config.line_terminator.as_str()));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use std::io;
@@ -270,6 +359,8 @@ mod test {
     use std::vec::Vec;
 
     use super::{Columns, Config, Char, CSV, read_rows, Row, LF};
+    use super::{write_column, write_rows, Never, Always, Disallowed};
+    use super::{ESCAPE_DISALLOWED, MUST_QUOTE, ESCAPE_CHAR_IN_QUOTE};
 
     fn assert_colmatch(cfg: Config, row: &str, cols: &[IoResult<~str>]) {
         let mut reader = io::BufReader::new(row.as_bytes());
@@ -479,5 +570,59 @@ mod test {
         assert_rowmatch("foo,\"bar\r\nbaz,qux", vec!(Err(IoError {kind: io::EndOfFile,
                     desc: "end of file",
                     detail: None})));
+    }
+
+    fn assert_column_written(config: Config, col: ~str, exp: &[u8], exp_res: IoResult<()>) {
+        let mut writer = io::MemWriter::new();
+        let res = {
+            write_column(config, &mut writer, col)
+        };
+        assert_eq!(res, exp_res);
+        assert_eq!(exp, writer.get_ref());
+    }
+
+    #[test]
+    fn written_column_is_not_quoted() {
+        assert_column_written(CSV, ~"foo", bytes!("foo"), Ok(()));
+        assert_column_written(Config {quote: Never, ..CSV}, ~"foo", bytes!("foo"), Ok(()));
+    }
+
+    #[test]
+    fn written_column_is_quoted() {
+        assert_column_written(CSV, ~"fo,o", bytes!("\"fo,o\""), Ok(()));
+        assert_column_written(CSV, ~"f\ro", bytes!("\"f\ro\""), Ok(()));
+        assert_column_written(Config {quote: Always, ..CSV}, ~"bar", bytes!("\"bar\""), Ok(()));
+    }
+
+    #[test]
+    fn error_on_writing_value_that_should_be_quoted() {
+        assert_column_written(Config {quote: Never, ..DELIM_PIPE}, ~"a|b", bytes!(""), Err(MUST_QUOTE.clone()))
+    }
+
+    #[test]
+    fn written_column_containing_quote_char_is_quoted() {
+        assert_column_written(CSV, ~"Hello, \"world\"", bytes!("\"Hello, \"\"world\"\"\""), Ok(()));
+        assert_column_written(Config {escape: Char('!'), ..QUOTE_TILDE}, ~"Hello, ~world~", bytes!("~Hello, !~world!~~"), Ok(()));
+    }
+
+    #[test]
+    fn error_when_writing_quoted_column_with_escape_disallowed() {
+        assert_column_written(Config {escape: Disallowed, ..QUOTE_TILDE}, ~"Hello, ~world~", bytes!("~Hello, "), Err(ESCAPE_DISALLOWED.clone()));
+    }
+
+    #[test]
+    fn writen_quoted_column_can_not_cantain_escape_char() {
+        assert_column_written(Config {escape: Char('?'), quote: Always, ..CSV}, ~"Hello?", bytes!("\"Hello"), Err(ESCAPE_CHAR_IN_QUOTE.clone()));
+    }
+
+    #[test]
+    fn columns_are_written_correctly() {
+        let mut writer = io::MemWriter::new();
+        let res = {
+            let rows = vec!(vec!(~"foo", ~"b|ar"), vec!(~"b\r\naz", ~"qux"));
+            write_rows(DELIM_PIPE, &mut writer, rows.move_iter())
+        };
+        assert_eq!(Ok(()), res);
+        assert_eq!(bytes!("foo|\"b|ar\"\r\n\"b\r\naz\"|qux\r\n"), writer.get_ref());
     }
 }
