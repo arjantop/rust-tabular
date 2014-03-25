@@ -1,6 +1,8 @@
 use std::io;
 use std::io::{IoResult, IoError};
-use std::vec::Vec;
+
+pub use common::{LineTerminator, Row, LF, CRLF};
+use common::INVALID_LINE_ENDING;
 
 #[deriving(Eq, Show)]
 pub enum Escape {
@@ -14,20 +16,6 @@ pub enum Quote {
     Never,
     Always,
     Minimal,
-}
-
-pub enum LineTerminator {
-    LF,
-    CRLF
-}
-
-impl LineTerminator {
-    fn as_str(&self) -> &'static str {
-        match *self {
-            LF => "\n",
-            CRLF => "\r\n"
-        }
-    }
 }
 
 pub static CSV: Config = Config {
@@ -54,13 +42,6 @@ impl Config {
             Disallowed => None
         }
     }
-
-    fn is_line_terminator_start(&self, ch: char) -> bool {
-        match self.line_terminator {
-            LF => ch == '\n',
-            CRLF => ch == '\r'
-        }
-    }
 }
 
 struct Columns<'a, R> {
@@ -83,7 +64,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
             Ok(ch) => {
                 if ch == self.config.delimiter {
                     Ok(res)
-                } else if self.config.is_line_terminator_start(ch) {
+                } else if self.config.line_terminator.is_beginning(ch) {
                     match self.read_line_terminator() {
                         Ok(()) => Ok(res),
                         Err(err) => Err(err)
@@ -147,11 +128,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
             CRLF => {
                 match self.read_char() {
                     Ok('\n') => Ok(()),
-                    Ok(_) => Err(IoError {
-                        kind: io::InvalidInput,
-                        desc: "Invalid line ending",
-                        detail: None
-                    }),
+                    Ok(_) => Err(INVALID_LINE_ENDING.clone()),
                     Err(err) => Err(err)
                 }
             }
@@ -176,7 +153,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
         loop {
             match curr {
                 Ok(ch) => {
-                    if self.config.is_line_terminator_start(ch) {
+                    if self.config.line_terminator.is_beginning(ch) {
                         match self.read_line_terminator() {
                             Ok(()) => break,
                             Err(err) => return Err(err)
@@ -224,8 +201,6 @@ impl<'a, R: Buffer> Iterator<IoResult<~str>> for Columns<'a, R> {
         }
     }
 }
-
-pub type Row = Vec<~str>;
 
 pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
     let mut cols = Columns {
@@ -286,9 +261,10 @@ fn is_quote_required(config: Config, col: &str) -> bool {
         return true
     }
     col.chars().any(|ch| {
-        ch == config.delimiter || config.is_line_terminator_start(ch)
+        ch == config.delimiter || config.line_terminator.is_beginning(ch)
     })
 }
+
 static MUST_QUOTE: IoError = IoError {
     kind: io::InvalidInput,
     desc: "Value should be quoted",
@@ -358,6 +334,8 @@ mod test {
     use std::io::{IoResult, IoError};
     use std::vec::Vec;
 
+    use common::INVALID_LINE_ENDING;
+
     use super::{Columns, Config, Char, CSV, read_rows, Row, LF};
     use super::{write_column, write_rows, Never, Always, Disallowed};
     use super::{ESCAPE_DISALLOWED, MUST_QUOTE, ESCAPE_CHAR_IN_QUOTE};
@@ -376,12 +354,6 @@ mod test {
     static EOF_ERROR: IoError = IoError {
         kind: io::EndOfFile,
         desc: "end of file",
-        detail: None
-    };
-
-    static INVALID_LINE_ENDING: IoError = IoError {
-        kind: io::InvalidInput,
-        desc: "Invalid line ending",
         detail: None
     };
 
