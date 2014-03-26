@@ -1,5 +1,5 @@
 use std::io;
-use std::io::IoResult;
+use std::io::{IoResult, IoError};
 
 pub use common::{LineTerminator, Row, LF, CRLF, INVALID_LINE_ENDING};
 
@@ -176,6 +176,18 @@ impl<R: Buffer> Iterator<IoResult<Row>> for Rows<R> {
     }
 }
 
+static COLUMN_TOO_LONG: IoError = IoError {
+    kind: io::InvalidInput,
+    desc: "Column too long",
+    detail: None
+};
+
+static ROW_TOO_LONG: IoError = IoError {
+    kind: io::InvalidInput,
+    desc: "Column too long",
+    detail: None
+};
+
 pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
     Rows {
         reader: reader,
@@ -184,13 +196,57 @@ pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
     }
 }
 
+fn write_column(config: &ColumnConfig, writer: &mut Writer, col: &str) -> IoResult<()> {
+    if col.len() > config.width {
+        return Err(COLUMN_TOO_LONG.clone())
+    }
+    let padding = config.pad_with.to_str().repeat(config.width - col.len());
+    if config.justification == Left {
+        try!(writer.write_str(col));
+        writer.write_str(padding)
+    } else {
+        try!(writer.write_str(padding));
+        writer.write_str(col)
+    }
+}
+
+pub fn write_row(config: &Config, writer: &mut Writer, row: Row) -> IoResult<()> {
+    let mut written = 0;
+    for (col, cfg) in row.iter().zip(config.columns.iter()) {
+        try!(write_column(cfg, writer, col.as_slice()));
+        written += cfg.width;
+    }
+    match config.line_end {
+        Nothing => (),
+        FixedWidth(w) => {
+            if written > w {
+                return Err(ROW_TOO_LONG.clone())
+            } else {
+                let padding = " ".repeat(w - written);
+                try!(writer.write_str(padding));
+            }
+        }
+        Newline(lt) => {
+            try!(writer.write_str(lt.as_str()));
+        }
+    }
+    Ok(())
+}
+
+pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
+    for row in rows {
+        try!(write_row(&config, writer, row));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use std::io;
     use std::io::{IoResult, IoError};
 
     use super::{Config, ColumnConfig, Left, Right, Row, CRLF, Newline, FixedWidth, LF, Nothing};
-    use super::{read_row, read_rows, INVALID_LINE_ENDING};
+    use super::{read_row, read_rows, INVALID_LINE_ENDING, write_column, COLUMN_TOO_LONG, write_rows, ROW_TOO_LONG, write_row};
 
     fn assert_colmatch(cfg: Config, row: &str, cols: IoResult<Row>) {
         let mut reader = io::BufReader::new(row.as_bytes());
@@ -357,5 +413,108 @@ mod test {
             line_end: Nothing
         };
         assert_rowmatch(cfg, " aabccc--  a#-----", vec!(Ok(vec!(~"aa", ~"b", ~"ccc")), Ok(vec!(~"a", ~"", ~""))));
+    }
+
+    fn assert_column_written(config: ColumnConfig, col: ~str, exp: &[u8], exp_res: IoResult<()>) {
+        let mut writer = io::MemWriter::new();
+        let res = {
+            write_column(&config, &mut writer, col)
+        };
+        assert_eq!(res, exp_res);
+        assert_eq!(exp, writer.get_ref());
+    }
+
+    #[test]
+    fn write_zero_width_column() {
+        assert_column_written(COLUMN_ZERO, ~"", bytes!(""), Ok(()));
+    }
+
+    #[test]
+    fn write_fixed_width_column() {
+        assert_column_written(COLUMN_1, ~"aaa", bytes!("aaa"), Ok(()));
+    }
+
+    #[test]
+    fn write_column_with_padding_left() {
+        assert_column_written(COLUMN_1, ~"a", bytes!("  a"), Ok(()));
+    }
+
+    #[test]
+    fn write_column_with_padding_right() {
+        assert_column_written(COLUMN_3, ~"cc", bytes!("cc---"), Ok(()));
+    }
+
+    #[test]
+    fn write_error_on_column_data_too_long() {
+        assert_column_written(COLUMN_3, ~"cccccc", bytes!(""), Err(COLUMN_TOO_LONG.clone()));
+    }
+
+    #[test]
+    fn line_ending_is_written() {
+        let config = Config {
+            columns: vec!(COLUMN_1, COLUMN_2),
+            line_end: Newline(CRLF)
+        };
+        let mut writer = io::MemWriter::new();
+        let res = {
+            let row = vec!(~"aaa", ~"b");
+            write_row(&config, &mut writer, row)
+        };
+        assert_eq!(res, Ok(()));
+        assert_eq!(writer.get_ref(), bytes!("aaab\r\n"));
+    }
+
+    #[test]
+    fn write_error_on_fixed_row_columns_too_long() {
+        let config = Config {
+            columns: vec!(COLUMN_1, COLUMN_2),
+            line_end: FixedWidth(3)
+        };
+        let mut writer = io::MemWriter::new();
+        let res = {
+            let row = vec!(~"aaa", ~"b");
+            write_row(&config, &mut writer, row)
+        };
+        assert_eq!(res, Err(ROW_TOO_LONG.clone()));
+        assert_eq!(writer.get_ref(), bytes!("aaab"));
+    }
+
+    fn assert_lines_written(config: Config, rows: Vec<Row>, exp: &[u8], exp_res: IoResult<()>) {
+        let mut writer = io::MemWriter::new();
+        let res = {
+            write_rows(config, &mut writer, rows.move_iter())
+        };
+        assert_eq!(res, exp_res);
+        assert_eq!(writer.get_ref(), exp);
+    }
+
+    #[test]
+    fn fixed_width_rows_are_written_correctly() {
+        let cfg = Config {
+            columns: vec!(COLUMN_1, COLUMN_2),
+            line_end: FixedWidth(6)
+        };
+        let rows = vec!(vec!(~"a", ~""), vec!(~"aaa", ~"b"));
+        assert_lines_written(cfg, rows, bytes!("  a#  aaab  "), Ok(()));
+    }
+
+    #[test]
+    fn newline_terminated_rows_are_written_correctly() {
+        let cfg = Config {
+            columns: vec!(COLUMN_1, COLUMN_2),
+            line_end: Newline(LF)
+        };
+        let rows = vec!(vec!(~"a", ~""), vec!(~"aaa", ~"b"));
+        assert_lines_written(cfg, rows, bytes!("  a#\naaab\n"), Ok(()));
+    }
+
+    #[test]
+    fn rows_without_terminator_are_written_correctly() {
+        let cfg = Config {
+            columns: vec!(COLUMN_1, COLUMN_2),
+            line_end: Nothing
+        };
+        let rows = vec!(vec!(~"a", ~""), vec!(~"aaa", ~"b"));
+        assert_lines_written(cfg, rows, bytes!("  a#aaab"), Ok(()));
     }
 }

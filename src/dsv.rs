@@ -317,13 +317,13 @@ pub fn write_row(config: Config, writer: &mut Writer, row: Row) -> IoResult<()> 
         try!(write_column(config, writer, col.as_slice()));
         first = false;
     }
+    try!(writer.write_str(config.line_terminator.as_str()));
     Ok(())
 }
 
 pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
     for row in rows {
         try!(write_row(config, writer, row));
-        try!(writer.write_str(config.line_terminator.as_str()));
     }
     Ok(())
 }
@@ -337,7 +337,7 @@ mod test {
     use common::INVALID_LINE_ENDING;
 
     use super::{Columns, Config, Char, CSV, read_rows, Row, LF};
-    use super::{write_column, write_rows, Never, Always, Disallowed};
+    use super::{write_column, write_rows, Never, Always, Disallowed, write_row};
     use super::{ESCAPE_DISALLOWED, MUST_QUOTE, ESCAPE_CHAR_IN_QUOTE};
 
     fn assert_colmatch(cfg: Config, row: &str, cols: &[IoResult<~str>]) {
@@ -588,7 +588,18 @@ mod test {
     }
 
     #[test]
-    fn columns_are_written_correctly() {
+    fn line_ending_is_written() {
+        let mut writer = io::MemWriter::new();
+        let res = {
+            let rows = vec!(~"foo", ~"bar");
+            write_row(CSV, &mut writer, rows)
+        };
+        assert_eq!(Ok(()), res);
+        assert_eq!(bytes!("foo,bar\r\n"), writer.get_ref());
+    }
+
+    #[test]
+    fn rows_are_written_correctly() {
         let mut writer = io::MemWriter::new();
         let res = {
             let rows = vec!(vec!(~"foo", ~"b|ar"), vec!(~"b\r\naz", ~"qux"));
