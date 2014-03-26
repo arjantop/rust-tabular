@@ -265,6 +265,21 @@ impl<R: Buffer> Iterator<IoResult<Row>> for Rows<R> {
     }
 }
 
+/// Create an iterator that reads a line on each iteration until EOF
+///
+/// ```rust
+/// use std::io::BufferedReader;
+/// use std::io::File;
+///
+/// use tabular::dsv::{read_rows, CSV};
+///
+/// let path = Path::new("file.csv");
+/// let mut file = BufferedReader::new(File::open(&path));
+///
+/// for row in read_rows(CSV, file) {
+///     println!("row = {}", row)
+/// }
+/// ```
 pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
     Rows {
         reader: reader,
@@ -338,6 +353,21 @@ pub fn write_row(config: Config, writer: &mut Writer, row: Row) -> IoResult<()> 
     Ok(())
 }
 
+/// Write rows from iterator into writer with settings from config
+///
+/// ```rust
+/// # #[allow(unused_must_use)];
+/// use std::io::BufferedWriter;
+/// use std::io::File;
+///
+/// use tabular::dsv::{write_rows, CSV};
+///
+/// let path = Path::new("file.csv");
+/// let mut file = BufferedWriter::new(File::open(&path));
+///
+/// let rows = vec!(vec!(~"a", ~"bb"), vec!(~"ccc", ~"dddd"));
+/// write_rows(CSV, &mut file, rows.move_iter());
+/// ```
 pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
     for row in rows {
         try!(write_row(config, writer, row));

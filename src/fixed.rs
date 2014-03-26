@@ -205,6 +205,27 @@ static ROW_TOO_LONG: IoError = IoError {
     detail: None
 };
 
+/// Create an iterator that reads a line on each iteration until EOF
+///
+/// ```rust
+/// use std::io::BufferedReader;
+/// use std::io::File;
+///
+/// use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, read_rows};
+///
+/// let path = Path::new("file.csv");
+/// let mut file = BufferedReader::new(File::open(&path));
+///
+/// let config = Config {
+///     columns: vec!(ColumnConfig {width: 5, pad_with: ' ', justification: Left},
+///                   ColumnConfig {width: 9, pad_with: '-', justification: Right}),
+///     line_end: Newline(LF)
+/// };
+///
+/// for row in read_rows(config, file) {
+///     println!("row = {}", row)
+/// }
+/// ```
 pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
     Rows {
         reader: reader,
@@ -250,6 +271,27 @@ pub fn write_row(config: &Config, writer: &mut Writer, row: Row) -> IoResult<()>
     Ok(())
 }
 
+/// Write rows from iterator into writer with settings from config
+///
+/// ```rust
+/// # #[allow(unused_must_use)];
+/// use std::io::BufferedWriter;
+/// use std::io::File;
+///
+/// use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, write_rows};
+///
+/// let path = Path::new("file.csv");
+/// let mut file = BufferedWriter::new(File::open(&path));
+///
+/// let config = Config {
+///     columns: vec!(ColumnConfig {width: 5, pad_with: ' ', justification: Left},
+///                   ColumnConfig {width: 9, pad_with: '-', justification: Right}),
+///     line_end: Newline(LF)
+/// };
+///
+/// let rows = vec!(vec!(~"a", ~"bb"), vec!(~"ccc", ~"dddd"));
+/// write_rows(config, &mut file, rows.move_iter());
+/// ```
 pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
     for row in rows {
         try!(write_row(&config, writer, row));

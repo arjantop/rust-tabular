@@ -7,6 +7,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+/*!
+  Library for reading and writing of tabular data.
+
+  Supported formats:
+
+  # DSV (Delimiter-separated values):
+    Most common are CSV (comma-separated values) and TSV (tab-separated values) formats.
+
+  # Fixed-width columns:
+    Format where columns are of predefined fixed width, unused width is padded.
+*/
 #[crate_id = "tabular"];
 #[license = "MIT/ASL2"];
 #[crate_type = "rlib"];
