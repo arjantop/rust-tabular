@@ -64,6 +64,8 @@ struct Columns<'a, R> {
     reader: &'a mut R,
     config: Config,
     row_done: bool,
+    done: bool,
+    allow_empty: bool,
     column: uint,
     pos: uint
 }
@@ -95,6 +97,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
             }
             Err(ref err) if err.kind == io::EndOfFile => {
                 self.row_done = true;
+                self.done = true;
                 Ok(res)
             }
             Err(err) => Err(err)
@@ -102,6 +105,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
     }
 
     fn read_quoted_column(&mut self) -> IoResult<~str> {
+        self.allow_empty = true;
         let mut col = ~"";
         loop {
             match self.read_char() {
@@ -158,6 +162,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
     fn check_eof(&mut self, err: IoError, allow_empty: bool, res: ~str) -> IoResult<~str> {
         if !self.row_done && err.kind == io::EndOfFile && (res.len() > 0 || allow_empty) {
             self.row_done = true;
+            self.done = true;
             Ok(res)
         } else {
             Err(err)
@@ -165,6 +170,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
     }
 
     fn read_unquoted_column(&mut self, mut curr: IoResult<char>) -> IoResult<~str> {
+        self.allow_empty = false;
         let mut col = ~"";
         loop {
             match curr {
@@ -208,32 +214,49 @@ impl<'a, R: Buffer> Iterator<IoResult<~str>> for Columns<'a, R> {
             Err(err) => {
                 self.row_done = true;
                 if self.pos == 0 && err.kind == io::EndOfFile {
+                    self.done = true;
                     None
                 } else {
                     Some(Err(err))
                 }
             }
-            res => Some(res)
+            Ok(res) => {
+                if self.row_done && !self.allow_empty
+                    && self.pos == self.config.line_terminator.as_str().len() {
+                    self.next()
+                } else {
+                    Some(Ok(res))
+                }
+            }
         }
     }
 }
 
 pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
-    let mut cols = Columns {
-        reader: reader,
-        config: config,
-        row_done: false,
-        column: 0,
-        pos: 0
-    };
     let mut res = Vec::new();
-    for col in cols {
-        match col {
-            Ok(s) => res.push(s),
-            Err(err) => return Err(err)
+    let done = {
+        let mut cols = Columns {
+            reader: reader,
+            config: config,
+            row_done: false,
+            done: false,
+            allow_empty: false,
+            column: 0,
+            pos: 0
+        };
+        for col in cols {
+            match col {
+                Ok(s) => res.push(s),
+                Err(err) => return Err(err)
+            }
         }
+        cols.done
+    };
+    if res.len() == 0 && !done {
+        read_row(config, reader)
+    } else {
+        Ok(res)
     }
-    Ok(res)
 }
 
 ///Iterator over rows
@@ -389,7 +412,8 @@ mod test {
 
     fn assert_colmatch(cfg: Config, row: &str, cols: &[IoResult<~str>]) {
         let mut reader = io::BufReader::new(row.as_bytes());
-        let mut columns = Columns {reader: &mut reader, config: cfg, row_done: false, column: 0, pos: 0};
+        let mut columns = Columns {reader: &mut reader, config: cfg, row_done: false, done: false,
+                                    allow_empty: false, column: 0, pos: 0};
         let result: Vec<IoResult<~str>> = columns.collect();
         assert_eq!(cols, result.as_slice())
     }
@@ -411,8 +435,8 @@ mod test {
 
     #[test]
     fn empty_column_line_end() {
-        assert_colmatch(CSV, "\r\n", [Ok(~"")]);
-        assert_colmatch(Config {line_terminator: LF, ..CSV}, "\n", [Ok(~"")]);
+        assert_colmatch(CSV, "\r\n", []);
+        assert_colmatch(Config {line_terminator: LF, ..CSV}, "\n", []);
     }
 
     #[test]
@@ -578,6 +602,12 @@ mod test {
     fn multiple_rows() {
         assert_rowmatch("foo,\"bar\"\r\n\"baz\",qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
     }
+
+    #[test]
+    fn empty_lines_are_ignored() {
+        assert_rowmatch("aa,bb\r\n\r\n\r\ncc,dd", vec!(Ok(vec!(~"aa", ~"bb")), Ok(vec!(~"cc", ~"dd"))));
+    }
+
 
     #[test]
     fn multiple_rows_empty_line_ending() {
