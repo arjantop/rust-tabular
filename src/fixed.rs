@@ -1,31 +1,47 @@
+//! Reading and writing of data with fixed-width columns and rows
 use std::io;
 use std::io::{IoResult, IoError};
 
-pub use common::{LineTerminator, Row, LF, CRLF, INVALID_LINE_ENDING};
+pub use common::{LineTerminator, Row, LF, CRLF};
+use common::INVALID_LINE_ENDING;
 
+/// Text justification
 #[deriving(Eq, Clone)]
 pub enum Justification {
+    /// Justify left, pad right
     Left,
+    /// Justify right, pad left
     Right,
 }
 
+/// Line ending rule
 #[deriving(Eq, Clone)]
 pub enum LineEnding {
+    /// No row separation, columns of adjacent rows are next to another
     Nothing,
+    /// Row is always of set length, unused characters are ignored
     FixedWidth(uint),
+    /// Rows are separated by newline line terminator
     Newline(LineTerminator),
 }
 
+/// Contains configuration parameters for reading and writing columns
 #[deriving(Eq, Clone)]
 pub struct ColumnConfig {
+    /// Width of column
     width: uint,
+    /// Character used for padding when data in column < width of column
     pad_with: char,
+    /// Justification of column data
     justification: Justification,
 }
 
+/// Contains configuration parameters for reading and writing
 #[deriving(Eq, Clone)]
 pub struct Config {
+    /// Column configurations
     columns: Vec<ColumnConfig>,
+    /// Line ending rule
     line_end: LineEnding,
 }
 
@@ -149,6 +165,7 @@ pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
     Ok(row)
 }
 
+/// Iterator over rows
 pub struct Rows<R> {
     priv reader: R,
     priv config: Config,

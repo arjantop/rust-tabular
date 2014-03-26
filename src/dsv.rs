@@ -1,23 +1,33 @@
+//! Reading and writing of DSV (Delimiter-separated values) data
 use std::io;
 use std::io::{IoResult, IoError};
 
 pub use common::{LineTerminator, Row, LF, CRLF};
 use common::INVALID_LINE_ENDING;
 
+/// Quote character inside of quoted column escape rule
 #[deriving(Eq, Show)]
 pub enum Escape {
+    /// Quote character is doubled
     Double,
+    /// Quote character is escaped by this character, error if quoted column contains this chosen character
     Char(char),
+    /// No escaping is allowed, error is characters that require escaping are in quoted column
     Disallowed,
 }
 
+/// Column quoting rule
 #[deriving(Eq, Show)]
 pub enum Quote {
+    /// Column is never quoted, error when writing if it contains characters that should be quoted
     Never,
+    /// Column is always quoted
     Always,
+    /// Column is quoted if it contains characters that require quoting (delimiter or line terminator)
     Minimal,
 }
 
+/// Configuration for RFC 4180 standard CSV parsing
 pub static CSV: Config = Config {
     delimiter: ',',
     quote_char: '"',
@@ -26,11 +36,17 @@ pub static CSV: Config = Config {
     quote: Minimal
 };
 
+/// Contains configuration parameters for reading and writing
 pub struct Config {
+    /// Column delimiter
     delimiter: char,
+    /// Character used for column quoting
     quote_char: char,
+    /// Quote escape rule
     escape: Escape,
+    /// Rows are separated by line terminator
     line_terminator: LineTerminator,
+    /// When to quote columns when writing
     quote: Quote,
 }
 
@@ -220,6 +236,7 @@ pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
     Ok(res)
 }
 
+///Iterator over rows
 pub struct Rows<R> {
     priv reader: R,
     priv config: Config,

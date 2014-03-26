@@ -4,7 +4,7 @@
 
 Reading and writing of tabular data.
 
-- DSV (Delimiter-separated values): CSV (comma-seperated values), TSV (tab-seperated values)
+- DSV (Delimiter-separated values): CSV (comma-separated values), TSV (tab-separated values)
 - Fixed width: formats with columns of fixed width
 
 ```
