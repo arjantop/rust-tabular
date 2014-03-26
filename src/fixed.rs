@@ -262,8 +262,10 @@ mod test {
     use std::io;
     use std::io::{IoResult, IoError};
 
+    use common::INVALID_LINE_ENDING;
+
     use super::{Config, ColumnConfig, Left, Right, Row, CRLF, Newline, FixedWidth, LF, Nothing};
-    use super::{read_row, read_rows, INVALID_LINE_ENDING, write_column, COLUMN_TOO_LONG, write_rows, ROW_TOO_LONG, write_row};
+    use super::{read_row, read_rows, write_column, COLUMN_TOO_LONG, write_rows, ROW_TOO_LONG, write_row};
 
     fn assert_colmatch(cfg: Config, row: &str, cols: IoResult<Row>) {
         let mut reader = io::BufReader::new(row.as_bytes());
