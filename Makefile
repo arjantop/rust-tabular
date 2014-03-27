@@ -27,5 +27,9 @@ libtest: $(TESTDIR)
 doctest: lib
 	$(RUSTDOC) -L $(BUILDDIR) --test src/lib.rs
 
+bench: $(TESTDIR)
+	$(RUSTC) $(RUSTFLAGS) --test -o $(TESTDIR)/bench src/lib.rs
+	./$(TESTDIR)/bench --bench
+
 docs:
 	$(RUSTDOC) src/lib.rs

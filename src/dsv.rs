@@ -71,6 +71,7 @@ struct Columns<'a, R> {
 }
 
 impl<'a, R: Buffer> Columns<'a, R> {
+    #[inline(always)]
     fn read_char(&mut self) -> IoResult<char> {
         let res = self.reader.read_char();
         if res.is_ok() { self.pos += 1; }
@@ -193,6 +194,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
         Ok(col)
     }
 
+    #[inline(always)]
     fn read_column(&mut self) -> IoResult<~str> {
         let res = match self.read_char() {
             Ok(ch) if self.config.quote_char == ch => self.read_quoted_column(),
@@ -684,5 +686,33 @@ mod test {
         };
         assert_eq!(Ok(()), res);
         assert_eq!(bytes!("foo|\"b|ar\"\r\n\"b\r\naz\"|qux\r\n"), writer.get_ref());
+    }
+}
+
+#[cfg(test)]
+mod bench {
+    extern crate test;
+
+    use std::io::{BufferedReader, File};
+    use self::test::BenchHarness;
+
+    use super::{read_rows, CSV};
+
+    #[bench]
+    fn read_medium(b: &mut BenchHarness) {
+        let path = Path::new("data/medium.csv");
+        b.iter(|| {
+            let file = BufferedReader::new(File::open(&path));
+            for _ in read_rows(CSV, file) {}
+        })
+    }
+
+    #[bench]
+    fn read_short(b: &mut BenchHarness) {
+        let path = Path::new("data/short.csv");
+        b.iter(|| {
+            let file = BufferedReader::new(File::open(&path));
+            for _ in read_rows(CSV, file) {}
+        })
     }
 }
