@@ -147,6 +147,7 @@ impl<'a, R: Buffer> Iterator<IoResult<~str>> for Columns<'a, R> {
     }
 }
 
+/// Read a single row
 pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
     let mut cols = Columns {
         reader: reader,
@@ -208,11 +209,9 @@ static ROW_TOO_LONG: IoError = IoError {
 /// Create an iterator that reads a line on each iteration until EOF
 ///
 /// ```rust
-/// use std::io::BufferedReader;
-/// use std::io::File;
-///
-/// use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, read_rows};
-///
+/// # use std::io::BufferedReader;
+/// # use std::io::File;
+/// # use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, read_rows};
 /// let path = Path::new("file.csv");
 /// let mut file = BufferedReader::new(File::open(&path));
 ///
@@ -222,9 +221,7 @@ static ROW_TOO_LONG: IoError = IoError {
 ///     line_end: Newline(LF)
 /// };
 ///
-/// for row in read_rows(config, file) {
-///     println!("row = {}", row)
-/// }
+/// let rows = read_rows(config, file);
 /// ```
 pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
     Rows {
@@ -233,6 +230,46 @@ pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
         done: false
     }
 }
+
+pub type RowsMem = Rows<io::MemReader>;
+
+/// Helper method for reading rows from a string
+///
+/// ```rust
+/// # use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, from_str};
+/// let config = Config {
+///     columns: vec!(ColumnConfig {width: 5, pad_with: ' ', justification: Left},
+///                   ColumnConfig {width: 9, pad_with: '-', justification: Right}),
+///     line_end: Newline(LF)
+/// };
+///
+/// let rows = from_str(config, "aa,bb\r\ncc,dd");
+/// ```
+pub fn from_str(config: Config, s: &str) -> RowsMem {
+    let buf = io::MemReader::new(s.as_bytes().to_owned());
+    read_rows(config, buf)
+}
+
+pub type RowsFile = Rows<io::BufferedReader<IoResult<io::File>>>;
+
+/// Helper method for reading rows from a file
+///
+/// ```rust
+/// # use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, from_file};
+/// let config = Config {
+///     columns: vec!(ColumnConfig {width: 5, pad_with: ' ', justification: Left},
+///                   ColumnConfig {width: 9, pad_with: '-', justification: Right}),
+///     line_end: Newline(LF)
+/// };
+///
+/// let path = Path::new("path/file.csv");
+/// let rows = from_file(config, &path);
+/// ```
+pub fn from_file(config: Config, path: &Path) -> RowsFile {
+    let file = io::BufferedReader::new(io::File::open(path));
+    read_rows(config, file)
+}
+
 
 fn write_column(config: &ColumnConfig, writer: &mut Writer, col: &str) -> IoResult<()> {
     if col.len() > config.width {
@@ -248,6 +285,7 @@ fn write_column(config: &ColumnConfig, writer: &mut Writer, col: &str) -> IoResu
     }
 }
 
+/// Write a single row
 pub fn write_row(config: &Config, writer: &mut Writer, row: Row) -> IoResult<()> {
     let mut written = 0;
     for (col, cfg) in row.iter().zip(config.columns.iter()) {
@@ -275,12 +313,10 @@ pub fn write_row(config: &Config, writer: &mut Writer, row: Row) -> IoResult<()>
 ///
 /// ```rust
 /// # #[allow(unused_must_use)];
-/// use std::io::BufferedWriter;
-/// use std::io::File;
-///
-/// use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, write_rows};
-///
-/// let path = Path::new("file.csv");
+/// # use std::io::BufferedWriter;
+/// # use std::io::File;
+/// # use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, write_rows};
+/// let path = Path::new("path/file.csv");
 /// let mut file = BufferedWriter::new(File::open(&path));
 ///
 /// let config = Config {
@@ -297,6 +333,27 @@ pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut row
         try!(write_row(&config, writer, row));
     }
     Ok(())
+}
+
+/// Helper method for writing rows to a file
+///
+/// ```rust
+/// # #[allow(unused_must_use)];
+/// # use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, write_file};
+/// let path = Path::new("path/file.csv");
+///
+/// let config = Config {
+///     columns: vec!(ColumnConfig {width: 5, pad_with: ' ', justification: Left},
+///                   ColumnConfig {width: 9, pad_with: '-', justification: Right}),
+///     line_end: Newline(LF)
+/// };
+///
+/// let rows = vec!(vec!(~"a", ~"bb"), vec!(~"ccc", ~"dddd"));
+/// write_file(config, &path, rows.move_iter());
+/// ```
+pub fn write_file<R: Iterator<Row>>(config: Config, path: &Path, rows: R) -> IoResult<()> {
+    let mut file = io::BufferedWriter::new(io::File::open_mode(path, io::Open, io::Write));
+    write_rows(config, &mut file, rows)
 }
 
 #[cfg(test)]

@@ -244,6 +244,7 @@ impl<'a, R: Buffer> Iterator<IoResult<~str>> for Columns<'a, R> {
     }
 }
 
+/// Read a single row
 pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
     let mut res = Vec::new();
     let done = {
@@ -303,17 +304,13 @@ impl<R: Buffer> Iterator<IoResult<Row>> for Rows<R> {
 /// Create an iterator that reads a line on each iteration until EOF
 ///
 /// ```rust
-/// use std::io::BufferedReader;
-/// use std::io::File;
-///
-/// use tabular::dsv::{read_rows, CSV};
-///
+/// # use std::io::BufferedReader;
+/// # use std::io::File;
+/// # use tabular::dsv::{read_rows, CSV};
 /// let path = Path::new("file.csv");
 /// let mut file = BufferedReader::new(File::open(&path));
 ///
-/// for row in read_rows(CSV, file) {
-///     println!("row = {}", row)
-/// }
+/// let rows = read_rows(CSV, file);
 /// ```
 pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
     Rows {
@@ -321,6 +318,33 @@ pub fn read_rows<R: Buffer>(config: Config, reader: R) -> Rows<R> {
         config: config,
         done: false
     }
+}
+
+pub type RowsMem = Rows<io::MemReader>;
+
+/// Helper method for reading rows from a string
+///
+/// ```rust
+/// # use tabular::dsv::{from_str, CSV};
+/// let rows = from_str(CSV, "aa,bb\r\ncc,dd");
+/// ```
+pub fn from_str(config: Config, s: &str) -> RowsMem {
+    let buf = io::MemReader::new(s.as_bytes().to_owned());
+    read_rows(config, buf)
+}
+
+pub type RowsFile = Rows<io::BufferedReader<IoResult<io::File>>>;
+
+/// Helper method for reading rows from a file
+///
+/// ```rust
+/// # use tabular::dsv::{from_file, CSV};
+/// let path = Path::new("path/file.csv");
+/// let rows = from_file(CSV, &path);
+/// ```
+pub fn from_file(config: Config, path: &Path) -> RowsFile {
+    let file = io::BufferedReader::new(io::File::open(path));
+    read_rows(config, file)
 }
 
 fn is_quote_required(config: Config, col: &str) -> bool {
@@ -375,6 +399,7 @@ fn write_column(config: Config, writer: &mut Writer, col: &str) -> IoResult<()> 
     }
 }
 
+/// Write a single row
 pub fn write_row(config: Config, writer: &mut Writer, row: Row) -> IoResult<()> {
     let mut first = true;
     for col in row.iter() {
@@ -392,12 +417,10 @@ pub fn write_row(config: Config, writer: &mut Writer, row: Row) -> IoResult<()> 
 ///
 /// ```rust
 /// # #[allow(unused_must_use)];
-/// use std::io::BufferedWriter;
-/// use std::io::File;
-///
-/// use tabular::dsv::{write_rows, CSV};
-///
-/// let path = Path::new("file.csv");
+/// # use std::io::BufferedWriter;
+/// # use std::io::File;
+/// # use tabular::dsv::{write_rows, CSV};
+/// let path = Path::new("path/file.csv");
 /// let mut file = BufferedWriter::new(File::open(&path));
 ///
 /// let rows = vec!(vec!(~"a", ~"bb"), vec!(~"ccc", ~"dddd"));
@@ -408,6 +431,20 @@ pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut row
         try!(write_row(config, writer, row));
     }
     Ok(())
+}
+
+/// Helper method for writing rows to a file
+///
+/// ```rust
+/// # #[allow(unused_must_use)];
+/// # use tabular::dsv::{write_file, CSV};
+/// let rows = vec!(vec!(~"a", ~"bb"), vec!(~"ccc", ~"dddd"));
+/// let path = Path::new("path/file.csv");
+/// write_file(CSV, &path, rows.move_iter());
+/// ```
+pub fn write_file<R: Iterator<Row>>(config: Config, path: &Path, rows: R) -> IoResult<()> {
+    let mut file = io::BufferedWriter::new(io::File::open_mode(path, io::Open, io::Write));
+    write_rows(config, &mut file, rows)
 }
 
 #[cfg(test)]
@@ -713,17 +750,15 @@ mod test {
 mod bench {
     extern crate test;
 
-    use std::io::{BufferedReader, File};
     use self::test::BenchHarness;
 
-    use super::{read_rows, CSV};
+    use super::{from_file, CSV};
 
     #[bench]
     fn read_medium(b: &mut BenchHarness) {
         let path = Path::new("data/medium.csv");
         b.iter(|| {
-            let file = BufferedReader::new(File::open(&path));
-            for _ in read_rows(CSV, file) {}
+            for _ in from_file(CSV, &path) {}
         })
     }
 
@@ -731,8 +766,7 @@ mod bench {
     fn read_short(b: &mut BenchHarness) {
         let path = Path::new("data/short.csv");
         b.iter(|| {
-            let file = BufferedReader::new(File::open(&path));
-            for _ in read_rows(CSV, file) {}
+            for _ in from_file(CSV, &path) {}
         })
     }
 }

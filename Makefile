@@ -3,6 +3,7 @@ RUSTDOC = rustdoc
 RUSTFLAGS = -O
 BUILDDIR = build
 TESTDIR = $(BUILDDIR)/test
+EXAMPLEDIR = $(BUILDDIR)/examples
 
 all: $(BUILDDIR) test lib docs
 
@@ -10,6 +11,9 @@ $(BUILDDIR):
 	mkdir -p $@
 
 $(TESTDIR): $(BUILDDIR)
+	mkdir -p $@
+
+$(EXAMPLEDIR): $(BUILDDIR)
 	mkdir -p $@
 
 lib:
@@ -33,3 +37,6 @@ bench: $(TESTDIR)
 
 docs:
 	$(RUSTDOC) src/lib.rs
+
+examples: lib $(EXAMPLEDIR)
+	$(RUSTC) $(RUSTFLAGS) -L $(BUILDDIR) -o $(EXAMPLEDIR)/read_csv examples/read_csv.rs

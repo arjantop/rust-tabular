@@ -16,6 +16,7 @@ make
 ## Example
 
 Reading CSV data:
+
 ```rust
 use std::io::BufferedReader;
 use std::io::File;
@@ -30,6 +31,7 @@ for row in read_rows(CSV, file) {
 ```
 
 Reading fixed-length column data:
+
 ```rust
 use std::io::BufferedReader;
 use std::io::File;
