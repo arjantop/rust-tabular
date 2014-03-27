@@ -16,7 +16,7 @@ pub enum Escape {
     Disallowed,
 }
 
-/// Column quoting rule
+/// Column quoting rule, only Never affects data reading
 #[deriving(Eq, Show)]
 pub enum Quote {
     /// Column is never quoted, error when writing if it contains characters that should be quoted
@@ -36,6 +36,15 @@ pub static CSV: Config = Config {
     quote: Minimal
 };
 
+///Configuration for IANA TSV (text/tab-separated-values) parsing
+pub static TSV: Config = Config {
+    delimiter: '\t',
+    quote_char: '\0',
+    escape: Disallowed,
+    line_terminator: CRLF,
+    quote: Never
+};
+
 /// Contains configuration parameters for reading and writing
 pub struct Config {
     /// Column delimiter
@@ -46,7 +55,7 @@ pub struct Config {
     escape: Escape,
     /// Rows are separated by line terminator
     line_terminator: LineTerminator,
-    /// When to quote columns when writing
+    /// Quoting of columns
     quote: Quote,
 }
 
@@ -197,6 +206,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
     #[inline(always)]
     fn read_column(&mut self) -> IoResult<~str> {
         let res = match self.read_char() {
+            Ok(ch) if self.config.quote == Never => self.read_unquoted_column(Ok(ch)),
             Ok(ch) if self.config.quote_char == ch => self.read_quoted_column(),
             res => self.read_unquoted_column(res)
         };
@@ -408,7 +418,7 @@ mod test {
 
     use common::INVALID_LINE_ENDING;
 
-    use super::{Columns, Config, Char, CSV, read_rows, Row, LF};
+    use super::{Columns, Config, Char, CSV, read_rows, Row, LF, TSV};
     use super::{write_column, write_rows, Never, Always, Disallowed, write_row};
     use super::{ESCAPE_DISALLOWED, MUST_QUOTE, ESCAPE_CHAR_IN_QUOTE};
 
@@ -429,6 +439,11 @@ mod test {
         desc: "end of file",
         detail: None
     };
+
+    #[test]
+    fn multi_column_quoting_dsabled() {
+        assert_colmatch(Config{quote: Never, ..CSV}, "\"foo,bar\"", [Ok(~"\"foo"), Ok(~"bar\"")]);
+    }
 
     #[test]
     fn empty_column() {
@@ -587,9 +602,9 @@ mod test {
             detail: None})]);
     }
 
-    fn assert_rowmatch(s: &str, ex: Vec<IoResult<Row>>) {
+    fn assert_rowmatch(config: Config, s: &str, ex: Vec<IoResult<Row>>) {
         let reader = io::BufReader::new(s.as_bytes());
-        let rows: Vec<IoResult<Row>> = read_rows(CSV, reader).collect();
+        let rows: Vec<IoResult<Row>> = read_rows(config, reader).collect();
         for (row, exrow) in rows.iter().zip(ex.iter()) {
             assert_eq!(row, exrow);
         }
@@ -602,23 +617,28 @@ mod test {
 
     #[test]
     fn multiple_rows() {
-        assert_rowmatch("foo,\"bar\"\r\n\"baz\",qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+        assert_rowmatch(CSV, "foo,\"bar\"\r\n\"baz\",qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
     }
 
     #[test]
     fn empty_lines_are_ignored() {
-        assert_rowmatch("aa,bb\r\n\r\n\r\ncc,dd", vec!(Ok(vec!(~"aa", ~"bb")), Ok(vec!(~"cc", ~"dd"))));
+        assert_rowmatch(CSV, "aa,bb\r\n\r\n\r\ncc,dd", vec!(Ok(vec!(~"aa", ~"bb")), Ok(vec!(~"cc", ~"dd"))));
     }
 
 
     #[test]
     fn multiple_rows_empty_line_ending() {
-        assert_rowmatch("foo,\"bar\"\r\n\"baz\",qux\r\n", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+        assert_rowmatch(CSV, "foo,\"bar\"\r\n\"baz\",qux\r\n", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+    }
+
+    #[test]
+    fn read_tsv() {
+        assert_rowmatch(TSV, "foo\tbar\r\nbaz\tqux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
     }
 
     #[test]
     fn multiple_rows_unclosed_quote() {
-        assert_rowmatch("foo,\"bar\r\nbaz,qux", vec!(Err(IoError {kind: io::EndOfFile,
+        assert_rowmatch(CSV, "foo,\"bar\r\nbaz,qux", vec!(Err(IoError {kind: io::EndOfFile,
                     desc: "end of file",
                     detail: None})));
     }
