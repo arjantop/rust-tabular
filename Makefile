@@ -40,3 +40,4 @@ docs:
 
 examples: lib $(EXAMPLEDIR)
 	$(RUSTC) $(RUSTFLAGS) -L $(BUILDDIR) -o $(EXAMPLEDIR)/read_csv examples/read_csv.rs
+	$(RUSTC) $(RUSTFLAGS) -L $(BUILDDIR) -o $(EXAMPLEDIR)/read_tsv examples/read_tsv.rs

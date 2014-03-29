@@ -179,6 +179,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
         }
     }
 
+    #[inline(always)]
     fn read_unquoted_column(&mut self, mut curr: IoResult<char>) -> IoResult<~str> {
         self.allow_empty = false;
         let mut col = ~"";

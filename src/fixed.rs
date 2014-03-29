@@ -54,11 +54,13 @@ struct Columns<'a, R> {
 }
 
 impl<'a, R: Buffer> Columns<'a, R> {
+    #[inline(always)]
     fn read_char(&mut self) -> IoResult<char> {
         self.pos += 1;
         self.reader.read_char()
     }
 
+    #[inline(always)]
     fn read_str(&mut self, len: uint) -> IoResult<~str> {
         let mut s = ~"";
         for _ in range(0, len) {
@@ -70,6 +72,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
         Ok(s)
     }
 
+    #[inline(always)]
     fn read_column(&mut self, config: ColumnConfig) -> IoResult<~str> {
         match self.read_str(config.width) {
             Ok(col) => {
