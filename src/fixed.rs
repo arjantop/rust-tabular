@@ -2,7 +2,7 @@
 use std::io;
 use std::io::{IoResult, IoError};
 
-pub use common::{LineTerminator, Row, LF, CRLF};
+pub use common::{LineTerminator, Row, LF, CR, CRLF, VT, FF, NEL, LS, PS};
 use common::INVALID_LINE_ENDING;
 
 /// Text justification
@@ -96,20 +96,19 @@ impl<'a, R: Buffer> Columns<'a, R> {
     }
 
     fn read_newline(&mut self, lt: LineTerminator) -> IoResult<()> {
-        let expected = lt.as_str();
+        let mut lt = lt.as_str().chars();
         let curr_pos = self.pos;
-        let actual = match self.read_str(expected.len()) {
-            Ok(x) => x,
-            Err(ref err) if err.kind == io::EndOfFile && curr_pos + 1 == self.pos => {
-                return Ok(())
+        for c in lt {
+            match self.read_char() {
+                Ok(ch) if ch == c => (),
+                Ok(_) => return Err(INVALID_LINE_ENDING.clone()),
+                Err(ref err) if err.kind == io::EndOfFile && curr_pos + 1 == self.pos => {
+                    return Ok(())
+                }
+                Err(err) => return Err(err)
             }
-            Err(err) => return Err(err)
-        };
-        if expected == actual.as_slice() {
-            Ok(())
-        } else {
-            Err(INVALID_LINE_ENDING.clone())
         }
+        Ok(())
     }
 
     fn read_fixed_width(&mut self, width: uint) -> IoResult<()> {
@@ -366,7 +365,7 @@ mod test {
 
     use common::INVALID_LINE_ENDING;
 
-    use super::{Config, ColumnConfig, Left, Right, Row, CRLF, Newline, FixedWidth, LF, Nothing};
+    use super::{Config, ColumnConfig, Left, Right, Row, CRLF, Newline, FixedWidth, LF, Nothing, FF, LS};
     use super::{read_row, read_rows, write_column, COLUMN_TOO_LONG, write_rows, ROW_TOO_LONG, write_row};
 
     fn assert_colmatch(cfg: Config, row: &str, cols: IoResult<Row>) {
@@ -516,6 +515,24 @@ mod test {
             line_end: Newline(CRLF)
         };
         assert_rowmatch(cfg, " aabccc--\r\n  a#-----", vec!(Ok(vec!(~"aa", ~"b", ~"ccc")), Ok(vec!(~"a", ~"", ~""))));
+    }
+
+    #[test]
+    fn read_lines_with_fixed_columns_and_FF_line_end() {
+        let cfg = Config {
+            columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
+            line_end: Newline(FF)
+        };
+        assert_rowmatch(cfg, " aabccc--\x0c  a#-----", vec!(Ok(vec!(~"aa", ~"b", ~"ccc")), Ok(vec!(~"a", ~"", ~""))));
+    }
+
+    #[test]
+    fn read_lines_with_fixed_columns_and_LS_line_end() {
+        let cfg = Config {
+            columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
+            line_end: Newline(LS)
+        };
+        assert_rowmatch(cfg, " aabccc--\u2028  a#-----", vec!(Ok(vec!(~"aa", ~"b", ~"ccc")), Ok(vec!(~"a", ~"", ~""))));
     }
 
     #[test]

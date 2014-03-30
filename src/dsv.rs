@@ -2,7 +2,7 @@
 use std::io;
 use std::io::{IoResult, IoError};
 
-pub use common::{LineTerminator, Row, LF, CRLF};
+pub use common::{LineTerminator, Row, LF, CR, CRLF, VT, FF, NEL, LS, PS};
 use common::INVALID_LINE_ENDING;
 
 /// Quote character inside of quoted column escape rule
@@ -153,20 +153,16 @@ impl<'a, R: Buffer> Columns<'a, R> {
     }
 
     fn read_line_terminator(&mut self) -> IoResult<()> {
-        let res = match self.config.line_terminator {
-            LF => Ok(()),
-            CRLF => {
-                match self.read_char() {
-                    Ok('\n') => Ok(()),
-                    Ok(_) => Err(INVALID_LINE_ENDING.clone()),
-                    Err(err) => Err(err)
-                }
+        let mut lt = self.config.line_terminator.as_str().chars().skip(1);
+        for c in lt {
+            match self.read_char() {
+                Ok(ch) if ch == c => (),
+                Ok(_) => return Err(INVALID_LINE_ENDING.clone()),
+                Err(err) => return Err(err)
             }
-        };
-        if res.is_ok() {
-            self.row_done = true;
         }
-        res
+        self.row_done = true;
+        Ok(())
     }
 
     fn check_eof(&mut self, err: IoError, allow_empty: bool, res: ~str) -> IoResult<~str> {
@@ -456,7 +452,7 @@ mod test {
 
     use common::INVALID_LINE_ENDING;
 
-    use super::{Columns, Config, Char, CSV, read_rows, Row, LF, TSV};
+    use super::{Columns, Config, Char, CSV, read_rows, Row, LF, TSV, NEL, PS};
     use super::{write_column, write_rows, Never, Always, Disallowed, write_row};
     use super::{ESCAPE_DISALLOWED, MUST_QUOTE, ESCAPE_CHAR_IN_QUOTE};
 
@@ -672,6 +668,16 @@ mod test {
     #[test]
     fn read_tsv() {
         assert_rowmatch(TSV, "foo\tbar\r\nbaz\tqux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+    }
+
+    #[test]
+    fn read_NEL_line_terminated() {
+        assert_rowmatch(Config {line_terminator: NEL, ..CSV}, "foo,bar\x85baz,qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+    }
+
+    #[test]
+    fn read_PS_line_terminated() {
+        assert_rowmatch(Config {line_terminator: PS, ..CSV}, "foo,bar\u2029baz,qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
     }
 
     #[test]

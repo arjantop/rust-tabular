@@ -1,28 +1,43 @@
 use std::io;
 use std::io::IoError;
 
-/// Newline terminator
+/// Line terminator
 #[deriving(Eq, Clone)]
 pub enum LineTerminator {
-    /// Line terminator '\n'
+    /// Line feed ('\n')
     LF,
-    /// Line terminator '\r\n'
-    CRLF
+    /// Carriage return ('\r')
+    CR,
+    /// CR followed by LF ('\r\n')
+    CRLF,
+    /// Vertical tab (u000B)
+    VT,
+    /// Form feed (u000C)
+    FF,
+    /// Next line (u0085)
+    NEL,
+    /// Line separator (u2028)
+    LS,
+    /// Paragraph simulator (u2029)
+    PS,
 }
 
 impl LineTerminator {
     pub fn as_str(&self) -> &'static str {
         match *self {
             LF => "\n",
-            CRLF => "\r\n"
+            CR => "\r",
+            CRLF => "\r\n",
+            VT => "\u000B",
+            FF => "\u000C",
+            NEL => "\u0085",
+            LS => "\u2028",
+            PS => "\u2029",
         }
     }
 
     pub fn is_beginning(&self, ch: char) -> bool {
-        match *self {
-            LF => ch == '\n',
-            CRLF => ch == '\r'
-        }
+        ch == self.as_str().char_at(0)
     }
 }
 

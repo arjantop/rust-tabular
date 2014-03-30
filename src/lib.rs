@@ -30,11 +30,11 @@
 //!
 //! There is no support for Encoder and Decoder api currently (or similar) but library is designed for such extension in the future.
 //! Currently best way to achieve similar functionality is mapping a custom decoder over the Rows iterator.
-#[crate_id = "tabular"];
-#[license = "MIT/ASL2"];
-#[crate_type = "rlib"];
-#[crate_type = "dylib"];
-#[deny(warnings)];
+#![crate_id = "tabular"]
+#![license = "MIT/ASL2"]
+#![crate_type = "rlib"]
+#![crate_type = "dylib"]
+#![deny(warnings)]
 
 mod common;
 
