@@ -48,15 +48,15 @@ pub static TSV: Config = Config {
 /// Contains configuration parameters for reading and writing
 pub struct Config {
     /// Column delimiter
-    delimiter: char,
+    pub delimiter: char,
     /// Character used for column quoting
-    quote_char: char,
+    pub quote_char: char,
     /// Quote escape rule
-    escape: Escape,
+    pub escape: Escape,
     /// Rows are separated by line terminator
-    line_terminator: LineTerminator,
+    pub line_terminator: LineTerminator,
     /// Quoting of columns
-    quote: Quote,
+    pub quote: Quote,
 }
 
 impl Config {
@@ -271,9 +271,9 @@ pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
 
 ///Iterator over rows
 pub struct Rows<R> {
-    priv reader: R,
-    priv config: Config,
-    priv done: bool,
+    reader: R,
+    config: Config,
+    done: bool,
 }
 
 impl<R: Buffer> Iterator<IoResult<Row>> for Rows<R> {

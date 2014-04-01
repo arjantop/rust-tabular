@@ -29,20 +29,20 @@ pub enum LineEnding {
 #[deriving(Eq, Clone)]
 pub struct ColumnConfig {
     /// Width of column
-    width: uint,
+    pub width: uint,
     /// Character used for padding when data in column < width of column
-    pad_with: char,
+    pub pad_with: char,
     /// Justification of column data
-    justification: Justification,
+    pub justification: Justification,
 }
 
 /// Contains configuration parameters for reading and writing
 #[deriving(Eq, Clone)]
 pub struct Config {
     /// Column configurations
-    columns: Vec<ColumnConfig>,
+    pub columns: Vec<ColumnConfig>,
     /// Line ending rule
-    line_end: LineEnding,
+    pub line_end: LineEnding,
 }
 
 struct Columns<'a, R> {
@@ -170,9 +170,9 @@ pub fn read_row<R: Buffer>(config: Config, reader: &mut R) -> IoResult<Row> {
 
 /// Iterator over rows
 pub struct Rows<R> {
-    priv reader: R,
-    priv config: Config,
-    priv done: bool,
+    reader: R,
+    config: Config,
+    done: bool,
 }
 
 impl<R: Buffer> Iterator<IoResult<Row>> for Rows<R> {
