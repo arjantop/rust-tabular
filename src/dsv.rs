@@ -1,6 +1,7 @@
 //! Reading and writing of DSV (Delimiter-separated values) data
 use std::io;
 use std::io::{IoResult, IoError};
+use std::strbuf::StrBuf;
 
 pub use common::{LineTerminator, Row, LF, CR, CRLF, VT, FF, NEL, LS, PS};
 use common::INVALID_LINE_ENDING;
@@ -116,7 +117,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
 
     fn read_quoted_column(&mut self) -> IoResult<~str> {
         self.allow_empty = true;
-        let mut col = ~"";
+        let mut col = StrBuf::new();
         loop {
             match self.read_char() {
                 Ok(ch) => {
@@ -132,7 +133,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
 
                     } else if self.config.escape_char() != Some(self.config.quote_char) && ch == self.config.quote_char {
                         let next = self.read_char();
-                        return self.quoted_end(next, col)
+                        return self.quoted_end(next, col.into_owned())
                     } else if ch == self.config.quote_char {
                         let next = self.read_char();
                         match next {
@@ -142,7 +143,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
                             }
                             _ => ()
                         };
-                        return self.quoted_end(next, col)
+                        return self.quoted_end(next, col.into_owned())
                     } else {
                         col.push_char(ch);
                     }
@@ -178,7 +179,7 @@ impl<'a, R: Buffer> Columns<'a, R> {
     #[inline(always)]
     fn read_unquoted_column(&mut self, mut curr: IoResult<char>) -> IoResult<~str> {
         self.allow_empty = false;
-        let mut col = ~"";
+        let mut col = StrBuf::new();
         loop {
             match curr {
                 Ok(ch) => {
@@ -194,10 +195,10 @@ impl<'a, R: Buffer> Columns<'a, R> {
                     }
                     curr = self.read_char();
                 }
-                Err(err) => return self.check_eof(err, self.column > 0, col)
+                Err(err) => return self.check_eof(err, self.column > 0, col.into_owned())
             }
         }
-        Ok(col)
+        Ok(col.into_owned())
     }
 
     #[inline(always)]
@@ -326,7 +327,7 @@ pub type RowsMem = Rows<io::MemReader>;
 /// let rows = from_str(CSV, "aa,bb\r\ncc,dd");
 /// ```
 pub fn from_str(config: Config, s: &str) -> RowsMem {
-    let buf = io::MemReader::new(s.as_bytes().to_owned());
+    let buf = io::MemReader::new(Vec::from_slice(s.as_bytes()));
     read_rows(config, buf)
 }
 
@@ -757,12 +758,12 @@ mod test {
 mod bench {
     extern crate test;
 
-    use self::test::BenchHarness;
+    use self::test::Bencher;
 
     use super::{from_file, CSV};
 
     #[bench]
-    fn read_medium(b: &mut BenchHarness) {
+    fn read_medium(b: &mut Bencher) {
         let path = Path::new("data/medium.csv");
         b.iter(|| {
             for _ in from_file(CSV, &path) {}
@@ -770,7 +771,7 @@ mod bench {
     }
 
     #[bench]
-    fn read_short(b: &mut BenchHarness) {
+    fn read_short(b: &mut Bencher) {
         let path = Path::new("data/short.csv");
         b.iter(|| {
             for _ in from_file(CSV, &path) {}

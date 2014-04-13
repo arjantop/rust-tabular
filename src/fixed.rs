@@ -1,6 +1,7 @@
 //! Reading and writing of data with fixed-width columns and rows
 use std::io;
 use std::io::{IoResult, IoError};
+use std::strbuf::StrBuf;
 
 pub use common::{LineTerminator, Row, LF, CR, CRLF, VT, FF, NEL, LS, PS};
 use common::INVALID_LINE_ENDING;
@@ -62,14 +63,14 @@ impl<'a, R: Buffer> Columns<'a, R> {
 
     #[inline(always)]
     fn read_str(&mut self, len: uint) -> IoResult<~str> {
-        let mut s = ~"";
+        let mut s = StrBuf::new();
         for _ in range(0, len) {
             match self.read_char() {
                 Ok(ch) => s.push_char(ch),
                 Err(err) => return Err(err)
             }
         }
-        Ok(s)
+        Ok(s.into_owned())
     }
 
     #[inline(always)]
@@ -248,7 +249,7 @@ pub type RowsMem = Rows<io::MemReader>;
 /// let rows = from_str(config, "aa,bb\r\ncc,dd");
 /// ```
 pub fn from_str(config: Config, s: &str) -> RowsMem {
-    let buf = io::MemReader::new(s.as_bytes().to_owned());
+    let buf = io::MemReader::new(Vec::from_slice(s.as_bytes()));
     read_rows(config, buf)
 }
 
