@@ -421,7 +421,7 @@ pub fn write_row(config: Config, writer: &mut Writer, row: Row) -> IoResult<()> 
 /// let path = Path::new("path/file.csv");
 /// let mut file = BufferedWriter::new(File::open(&path));
 ///
-/// let rows = vec!(vec!(~"a", ~"bb"), vec!(~"ccc", ~"dddd"));
+/// let rows = vec!(vec!("a".to_owned(), "bb".to_owned()), vec!("ccc".to_owned(), "dddd".to_owned()));
 /// write_rows(CSV, &mut file, rows.move_iter());
 /// ```
 pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
@@ -436,7 +436,7 @@ pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut row
 /// ```rust
 /// # #[allow(unused_must_use)];
 /// # use tabular::dsv::{write_file, CSV};
-/// let rows = vec!(vec!(~"a", ~"bb"), vec!(~"ccc", ~"dddd"));
+/// let rows = vec!(vec!("a".to_owned(), "bb".to_owned()), vec!("ccc".to_owned(), "dddd".to_owned()));
 /// let path = Path::new("path/file.csv");
 /// write_file(CSV, &path, rows.move_iter());
 /// ```
@@ -477,7 +477,7 @@ mod test {
 
     #[test]
     fn multi_column_quoting_dsabled() {
-        assert_colmatch(Config{quote: Never, ..CSV}, "\"foo,bar\"", [Ok(~"\"foo"), Ok(~"bar\"")]);
+        assert_colmatch(Config{quote: Never, ..CSV}, "\"foo,bar\"", [Ok("\"foo".to_owned()), Ok("bar\"".to_owned())]);
     }
 
     #[test]
@@ -493,14 +493,14 @@ mod test {
 
     #[test]
     fn single_column() {
-        assert_colmatch(CSV, "abc", [Ok(~"abc")]);
-        assert_colmatch(DELIM_PIPE, "abc", [Ok(~"abc")]);
+        assert_colmatch(CSV, "abc", [Ok("abc".to_owned())]);
+        assert_colmatch(DELIM_PIPE, "abc", [Ok("abc".to_owned())]);
     }
 
     #[test]
     fn single_column_line_end() {
-        assert_colmatch(CSV, "foo\r\n", [Ok(~"foo")]);
-        assert_colmatch(Config {line_terminator: LF, ..CSV}, "foo\n", [Ok(~"foo")]);
+        assert_colmatch(CSV, "foo\r\n", [Ok("foo".to_owned())]);
+        assert_colmatch(Config {line_terminator: LF, ..CSV}, "foo\n", [Ok("foo".to_owned())]);
     }
 
     #[test]
@@ -510,48 +510,48 @@ mod test {
 
     #[test]
     fn multi_column() {
-        assert_colmatch(CSV, "foo,bar", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(DELIM_PIPE, "foo|bar", [Ok(~"foo"), Ok(~"bar")]);
+        assert_colmatch(CSV, "foo,bar", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
+        assert_colmatch(DELIM_PIPE, "foo|bar", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
     }
 
     #[test]
     fn multi_column_line_end() {
-        assert_colmatch(CSV, "foo,bar\r\n", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(DELIM_PIPE, "foo|bar\r\n", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(Config {line_terminator: LF, ..CSV}, "foo,bar\n", [Ok(~"foo"), Ok(~"bar")]);
+        assert_colmatch(CSV, "foo,bar\r\n", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
+        assert_colmatch(DELIM_PIPE, "foo|bar\r\n", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
+        assert_colmatch(Config {line_terminator: LF, ..CSV}, "foo,bar\n", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
     }
 
     #[test]
     fn empty_column_quoted() {
-        assert_colmatch(CSV, r#""""#, [Ok(~"")]);
-        assert_colmatch(Config {quote_char: '\'', ..CSV}, "''", [Ok(~"")]);
+        assert_colmatch(CSV, r#""""#, [Ok("".to_owned())]);
+        assert_colmatch(Config {quote_char: '\'', ..CSV}, "''", [Ok("".to_owned())]);
     }
 
     #[test]
     fn empty_column_quoted_line_end() {
-        assert_colmatch(CSV, "\"\"\r\n", [Ok(~"")]);
-        assert_colmatch(Config {quote_char: '\'', ..CSV}, "''\r\n", [Ok(~"")]);
-        assert_colmatch(Config {line_terminator: LF, ..CSV}, "\"\"\n", [Ok(~"")]);
-        assert_colmatch(Config {line_terminator: LF, quote_char: '\'', ..CSV}, "''\n", [Ok(~"")]);
+        assert_colmatch(CSV, "\"\"\r\n", [Ok("".to_owned())]);
+        assert_colmatch(Config {quote_char: '\'', ..CSV}, "''\r\n", [Ok("".to_owned())]);
+        assert_colmatch(Config {line_terminator: LF, ..CSV}, "\"\"\n", [Ok("".to_owned())]);
+        assert_colmatch(Config {line_terminator: LF, quote_char: '\'', ..CSV}, "''\n", [Ok("".to_owned())]);
     }
 
     #[test]
     fn single_column_quoted() {
-        assert_colmatch(CSV, r#""abc""#, [Ok(~"abc")]);
-        assert_colmatch(QUOTE_TILDE, r#"~abc~"#, [Ok(~"abc")]);
+        assert_colmatch(CSV, r#""abc""#, [Ok("abc".to_owned())]);
+        assert_colmatch(QUOTE_TILDE, r#"~abc~"#, [Ok("abc".to_owned())]);
     }
 
     #[test]
     fn single_column_quoted_with_delim() {
-        assert_colmatch(CSV, r#""a,b,c""#, [Ok(~"a,b,c")]);
-        assert_colmatch(Config {delimiter: '-', ..QUOTE_TILDE}, r#"~a-b-c~"#, [Ok(~"a-b-c")]);
+        assert_colmatch(CSV, r#""a,b,c""#, [Ok("a,b,c".to_owned())]);
+        assert_colmatch(Config {delimiter: '-', ..QUOTE_TILDE}, r#"~a-b-c~"#, [Ok("a-b-c".to_owned())]);
     }
 
     #[test]
     fn single_column_quoted_line_end() {
-        assert_colmatch(CSV, "\"abc\"\r\n", [Ok(~"abc")]);
-        assert_colmatch(QUOTE_TILDE, "~abc~\r\n", [Ok(~"abc")]);
-        assert_colmatch(Config {line_terminator: LF, ..QUOTE_TILDE}, "~abc~\n", [Ok(~"abc")]);
+        assert_colmatch(CSV, "\"abc\"\r\n", [Ok("abc".to_owned())]);
+        assert_colmatch(QUOTE_TILDE, "~abc~\r\n", [Ok("abc".to_owned())]);
+        assert_colmatch(Config {line_terminator: LF, ..QUOTE_TILDE}, "~abc~\n", [Ok("abc".to_owned())]);
     }
 
     #[test]
@@ -561,13 +561,13 @@ mod test {
 
     #[test]
     fn single_column_quoted_allow_line_ending_inside() {
-        assert_colmatch(CSV, "\"Hello\r\nworld\"", [Ok(~"Hello\r\nworld")]);
+        assert_colmatch(CSV, "\"Hello\r\nworld\"", [Ok("Hello\r\nworld".to_owned())]);
     }
 
     #[test]
     fn single_column_quoted_escaped() {
-        assert_colmatch(CSV, r#""Hello, ""rust"" world""#, [Ok(~"Hello, \"rust\" world")]);
-        assert_colmatch(Config {escape: Char('$'), ..CSV}, r#""Hello, $"rust$" world""#, [Ok(~"Hello, \"rust\" world")]);
+        assert_colmatch(CSV, r#""Hello, ""rust"" world""#, [Ok("Hello, \"rust\" world".to_owned())]);
+        assert_colmatch(Config {escape: Char('$'), ..CSV}, r#""Hello, $"rust$" world""#, [Ok("Hello, \"rust\" world".to_owned())]);
     }
 
     #[test]
@@ -593,40 +593,40 @@ mod test {
 
     #[test]
     fn multi_column_quoted() {
-        assert_colmatch(CSV, "\"foo\",\"bar\"", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(QUOTE_TILDE, "~foo~,~bar~", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(Config {delimiter: ';', ..QUOTE_TILDE}, "~foo~;~bar~", [Ok(~"foo"), Ok(~"bar")]);
+        assert_colmatch(CSV, "\"foo\",\"bar\"", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
+        assert_colmatch(QUOTE_TILDE, "~foo~,~bar~", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
+        assert_colmatch(Config {delimiter: ';', ..QUOTE_TILDE}, "~foo~;~bar~", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
     }
 
     #[test]
     fn multi_column_quoted_line_end() {
-        assert_colmatch(CSV, "\"foo\",\"bar\"\r\n", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(QUOTE_TILDE, "~foo~,~bar~\r\n", [Ok(~"foo"), Ok(~"bar")]);
-        assert_colmatch(Config {delimiter: ';', line_terminator: LF, ..QUOTE_TILDE}, "~foo~;~bar~", [Ok(~"foo"), Ok(~"bar")]);
+        assert_colmatch(CSV, "\"foo\",\"bar\"\r\n", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
+        assert_colmatch(QUOTE_TILDE, "~foo~,~bar~\r\n", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
+        assert_colmatch(Config {delimiter: ';', line_terminator: LF, ..QUOTE_TILDE}, "~foo~;~bar~", [Ok("foo".to_owned()), Ok("bar".to_owned())]);
     }
 
     #[test]
     fn columns_unquoted_trailing_delim() {
-        assert_colmatch(CSV, r#"a,1,c2,"#, [Ok(~"a"), Ok(~"1"), Ok(~"c2"), Ok(~"")]);
-        assert_colmatch(DELIM_PIPE, r#"a|1|c2|"#, [Ok(~"a"), Ok(~"1"), Ok(~"c2"), Ok(~"")]);
+        assert_colmatch(CSV, r#"a,1,c2,"#, [Ok("a".to_owned()), Ok("1".to_owned()), Ok("c2".to_owned()), Ok("".to_owned())]);
+        assert_colmatch(DELIM_PIPE, r#"a|1|c2|"#, [Ok("a".to_owned()), Ok("1".to_owned()), Ok("c2".to_owned()), Ok("".to_owned())]);
     }
 
     #[test]
     fn columns_unquoted_leading_delim() {
-        assert_colmatch(CSV, r#",1,c2"#, [Ok(~""), Ok(~"1"), Ok(~"c2")]);
-        assert_colmatch(DELIM_PIPE, r#"|1|c2"#, [Ok(~""), Ok(~"1"), Ok(~"c2")]);
+        assert_colmatch(CSV, r#",1,c2"#, [Ok("".to_owned()), Ok("1".to_owned()), Ok("c2".to_owned())]);
+        assert_colmatch(DELIM_PIPE, r#"|1|c2"#, [Ok("".to_owned()), Ok("1".to_owned()), Ok("c2".to_owned())]);
     }
 
     #[test]
     fn columns_quoted_trailing_delim() {
-        assert_colmatch(CSV, r#""a","1","c2","#, [Ok(~"a"), Ok(~"1"), Ok(~"c2"), Ok(~"")]);
-        assert_colmatch(Config {quote_char: '\'', ..DELIM_PIPE}, r#"'a'|'1'|'c2'|"#, [Ok(~"a"), Ok(~"1"), Ok(~"c2"), Ok(~"")]);
+        assert_colmatch(CSV, r#""a","1","c2","#, [Ok("a".to_owned()), Ok("1".to_owned()), Ok("c2".to_owned()), Ok("".to_owned())]);
+        assert_colmatch(Config {quote_char: '\'', ..DELIM_PIPE}, r#"'a'|'1'|'c2'|"#, [Ok("a".to_owned()), Ok("1".to_owned()), Ok("c2".to_owned()), Ok("".to_owned())]);
     }
 
     #[test]
     fn columns_quoted_leading_delim() {
-        assert_colmatch(CSV, r#","1","c2""#, [Ok(~""), Ok(~"1"), Ok(~"c2")]);
-        assert_colmatch(Config {quote_char: '\'', ..DELIM_PIPE}, r#"|'1'|'c2'"#, [Ok(~""), Ok(~"1"), Ok(~"c2")]);
+        assert_colmatch(CSV, r#","1","c2""#, [Ok("".to_owned()), Ok("1".to_owned()), Ok("c2".to_owned())]);
+        assert_colmatch(Config {quote_char: '\'', ..DELIM_PIPE}, r#"|'1'|'c2'"#, [Ok("".to_owned()), Ok("1".to_owned()), Ok("c2".to_owned())]);
     }
 
     #[test]
@@ -652,33 +652,33 @@ mod test {
 
     #[test]
     fn multiple_rows() {
-        assert_rowmatch(CSV, "foo,\"bar\"\r\n\"baz\",qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+        assert_rowmatch(CSV, "foo,\"bar\"\r\n\"baz\",qux", vec!(Ok(vec!("foo".to_owned(), "bar".to_owned())), Ok(vec!("baz".to_owned(), "qux".to_owned()))));
     }
 
     #[test]
     fn empty_lines_are_ignored() {
-        assert_rowmatch(CSV, "aa,bb\r\n\r\n\r\ncc,dd", vec!(Ok(vec!(~"aa", ~"bb")), Ok(vec!(~"cc", ~"dd"))));
+        assert_rowmatch(CSV, "aa,bb\r\n\r\n\r\ncc,dd", vec!(Ok(vec!("aa".to_owned(), "bb".to_owned())), Ok(vec!("cc".to_owned(), "dd".to_owned()))));
     }
 
 
     #[test]
     fn multiple_rows_empty_line_ending() {
-        assert_rowmatch(CSV, "foo,\"bar\"\r\n\"baz\",qux\r\n", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+        assert_rowmatch(CSV, "foo,\"bar\"\r\n\"baz\",qux\r\n", vec!(Ok(vec!("foo".to_owned(), "bar".to_owned())), Ok(vec!("baz".to_owned(), "qux".to_owned()))));
     }
 
     #[test]
     fn read_tsv() {
-        assert_rowmatch(TSV, "foo\tbar\r\nbaz\tqux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+        assert_rowmatch(TSV, "foo\tbar\r\nbaz\tqux", vec!(Ok(vec!("foo".to_owned(), "bar".to_owned())), Ok(vec!("baz".to_owned(), "qux".to_owned()))));
     }
 
     #[test]
     fn read_NEL_line_terminated() {
-        assert_rowmatch(Config {line_terminator: NEL, ..CSV}, "foo,bar\x85baz,qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+        assert_rowmatch(Config {line_terminator: NEL, ..CSV}, "foo,bar\x85baz,qux", vec!(Ok(vec!("foo".to_owned(), "bar".to_owned())), Ok(vec!("baz".to_owned(), "qux".to_owned()))));
     }
 
     #[test]
     fn read_PS_line_terminated() {
-        assert_rowmatch(Config {line_terminator: PS, ..CSV}, "foo,bar\u2029baz,qux", vec!(Ok(vec!(~"foo", ~"bar")), Ok(vec!(~"baz", ~"qux"))));
+        assert_rowmatch(Config {line_terminator: PS, ..CSV}, "foo,bar\u2029baz,qux", vec!(Ok(vec!("foo".to_owned(), "bar".to_owned())), Ok(vec!("baz".to_owned(), "qux".to_owned()))));
     }
 
     #[test]
@@ -699,43 +699,43 @@ mod test {
 
     #[test]
     fn written_column_is_not_quoted() {
-        assert_column_written(CSV, ~"foo", bytes!("foo"), Ok(()));
-        assert_column_written(Config {quote: Never, ..CSV}, ~"foo", bytes!("foo"), Ok(()));
+        assert_column_written(CSV, "foo".to_owned(), bytes!("foo"), Ok(()));
+        assert_column_written(Config {quote: Never, ..CSV}, "foo".to_owned(), bytes!("foo"), Ok(()));
     }
 
     #[test]
     fn written_column_is_quoted() {
-        assert_column_written(CSV, ~"fo,o", bytes!("\"fo,o\""), Ok(()));
-        assert_column_written(CSV, ~"f\ro", bytes!("\"f\ro\""), Ok(()));
-        assert_column_written(Config {quote: Always, ..CSV}, ~"bar", bytes!("\"bar\""), Ok(()));
+        assert_column_written(CSV, "fo,o".to_owned(), bytes!("\"fo,o\""), Ok(()));
+        assert_column_written(CSV, "f\ro".to_owned(), bytes!("\"f\ro\""), Ok(()));
+        assert_column_written(Config {quote: Always, ..CSV}, "bar".to_owned(), bytes!("\"bar\""), Ok(()));
     }
 
     #[test]
     fn error_on_writing_value_that_should_be_quoted() {
-        assert_column_written(Config {quote: Never, ..DELIM_PIPE}, ~"a|b", bytes!(""), Err(MUST_QUOTE.clone()))
+        assert_column_written(Config {quote: Never, ..DELIM_PIPE}, "a|b".to_owned(), bytes!(""), Err(MUST_QUOTE.clone()))
     }
 
     #[test]
     fn written_column_containing_quote_char_is_quoted() {
-        assert_column_written(CSV, ~"Hello, \"world\"", bytes!("\"Hello, \"\"world\"\"\""), Ok(()));
-        assert_column_written(Config {escape: Char('!'), ..QUOTE_TILDE}, ~"Hello, ~world~", bytes!("~Hello, !~world!~~"), Ok(()));
+        assert_column_written(CSV, "Hello, \"world\"".to_owned(), bytes!("\"Hello, \"\"world\"\"\""), Ok(()));
+        assert_column_written(Config {escape: Char('!'), ..QUOTE_TILDE}, "Hello, ~world~".to_owned(), bytes!("~Hello, !~world!~~"), Ok(()));
     }
 
     #[test]
     fn error_when_writing_quoted_column_with_escape_disallowed() {
-        assert_column_written(Config {escape: Disallowed, ..QUOTE_TILDE}, ~"Hello, ~world~", bytes!("~Hello, "), Err(ESCAPE_DISALLOWED.clone()));
+        assert_column_written(Config {escape: Disallowed, ..QUOTE_TILDE}, "Hello, ~world~".to_owned(), bytes!("~Hello, "), Err(ESCAPE_DISALLOWED.clone()));
     }
 
     #[test]
     fn writen_quoted_column_can_not_cantain_escape_char() {
-        assert_column_written(Config {escape: Char('?'), quote: Always, ..CSV}, ~"Hello?", bytes!("\"Hello"), Err(ESCAPE_CHAR_IN_QUOTE.clone()));
+        assert_column_written(Config {escape: Char('?'), quote: Always, ..CSV}, "Hello?".to_owned(), bytes!("\"Hello"), Err(ESCAPE_CHAR_IN_QUOTE.clone()));
     }
 
     #[test]
     fn line_ending_is_written() {
         let mut writer = io::MemWriter::new();
         let res = {
-            let rows = vec!(~"foo", ~"bar");
+            let rows = vec!("foo".to_owned(), "bar".to_owned());
             write_row(CSV, &mut writer, rows)
         };
         assert_eq!(Ok(()), res);
@@ -746,7 +746,7 @@ mod test {
     fn rows_are_written_correctly() {
         let mut writer = io::MemWriter::new();
         let res = {
-            let rows = vec!(vec!(~"foo", ~"b|ar"), vec!(~"b\r\naz", ~"qux"));
+            let rows = vec!(vec!("foo".to_owned(), "b|ar".to_owned()), vec!("b\r\naz".to_owned(), "qux".to_owned()));
             write_rows(DELIM_PIPE, &mut writer, rows.move_iter())
         };
         assert_eq!(Ok(()), res);
