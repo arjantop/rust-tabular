@@ -2,8 +2,8 @@ env:
   global:
     - secure: krUYslQOc4ez/M/yoffWCAZr+r85dc+iKVzprotT1/DHDN+yOwBt+hDMbeP1Lff8kmDc5SNZJTNbMuOOIreC7hFhmvv328sM1NdOZW+KTdZnj00gozP1/YLWuHw4mQ6246hxCOzBXdDrnvj9KA++u2jb55CBzFYM+rXgJlKNnfE=
 before_install:
-  - curl http://static.rust-lang.org/dist/rust-nightly-x86_64-unknown-linux-gnu.tar.gz
-  - tar xfz rust-nightly-x86_64-unknown-linux-gnu.tar.gz
+  - curl -O http://static.rust-lang.org/dist/rust-nightly-x86_64-unknown-linux-gnu.tar.gz
+  - tar xzf rust-nightly-x86_64-unknown-linux-gnu.tar.gz
 install:
   - sudo ./rust-nightly-x86_64-unknown-linux-gnu/install.sh
 script:
