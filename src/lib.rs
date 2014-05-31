@@ -32,8 +32,7 @@
 //! Currently best way to achieve similar functionality is mapping a custom decoder over the Rows iterator.
 #![crate_id = "tabular"]
 #![license = "MIT/ASL2"]
-#![crate_type = "rlib"]
-#![crate_type = "dylib"]
+#![crate_type = "lib"]
 #![deny(warnings)]
 
 mod common;

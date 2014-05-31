@@ -2,7 +2,7 @@ use std::io;
 use std::io::IoError;
 
 /// Line terminator
-#[deriving(Eq, Clone)]
+#[deriving(Eq, PartialEq, Clone)]
 pub enum LineTerminator {
     /// Line feed ('\n')
     LF,
@@ -42,7 +42,7 @@ impl LineTerminator {
 }
 
 /// One row with columns
-pub type Row = Vec<~str>;
+pub type Row = Vec<String>;
 
 pub static INVALID_LINE_ENDING: IoError = IoError {
     kind: io::InvalidInput,

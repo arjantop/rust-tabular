@@ -1,13 +1,13 @@
 //! Reading and writing of data with fixed-width columns and rows
 use std::io;
 use std::io::{IoResult, IoError};
-use std::strbuf::StrBuf;
+use std::string::String;
 
 pub use common::{LineTerminator, Row, LF, CR, CRLF, VT, FF, NEL, LS, PS};
 use common::INVALID_LINE_ENDING;
 
 /// Text justification
-#[deriving(Eq, Clone)]
+#[deriving(Eq, PartialEq, Clone)]
 pub enum Justification {
     /// Justify left, pad right
     Left,
@@ -16,7 +16,7 @@ pub enum Justification {
 }
 
 /// Line ending rule
-#[deriving(Eq, Clone)]
+#[deriving(Eq, PartialEq, Clone)]
 pub enum LineEnding {
     /// No row separation, columns of adjacent rows are next to another
     Nothing,
@@ -27,7 +27,7 @@ pub enum LineEnding {
 }
 
 /// Contains configuration parameters for reading and writing columns
-#[deriving(Eq, Clone)]
+#[deriving(Eq, PartialEq, Clone)]
 pub struct ColumnConfig {
     /// Width of column
     pub width: uint,
@@ -38,7 +38,7 @@ pub struct ColumnConfig {
 }
 
 /// Contains configuration parameters for reading and writing
-#[deriving(Eq, Clone)]
+#[deriving(Eq, PartialEq, Clone)]
 pub struct Config {
     /// Column configurations
     pub columns: Vec<ColumnConfig>,
@@ -62,27 +62,27 @@ impl<'a, R: Buffer> Columns<'a, R> {
     }
 
     #[inline(always)]
-    fn read_str(&mut self, len: uint) -> IoResult<~str> {
-        let mut s = StrBuf::new();
+    fn read_str(&mut self, len: uint) -> IoResult<String> {
+        let mut s = String::new();
         for _ in range(0, len) {
             match self.read_char() {
                 Ok(ch) => s.push_char(ch),
                 Err(err) => return Err(err)
             }
         }
-        Ok(s.into_owned())
+        Ok(s.into_string())
     }
 
     #[inline(always)]
-    fn read_column(&mut self, config: ColumnConfig) -> IoResult<~str> {
+    fn read_column(&mut self, config: ColumnConfig) -> IoResult<String> {
         match self.read_str(config.width) {
             Ok(col) => {
                 let trimmed = if config.justification == Left {
-                    col.trim_right_chars(config.pad_with)
+                    col.as_slice().trim_right_chars(config.pad_with)
                 } else {
-                    col.trim_left_chars(config.pad_with)
+                    col.as_slice().trim_left_chars(config.pad_with)
                 };
-                Ok(trimmed.to_owned())
+                Ok(trimmed.to_string())
             }
             Err(err) => Err(err)
         }
@@ -118,8 +118,8 @@ impl<'a, R: Buffer> Columns<'a, R> {
     }
 }
 
-impl<'a, R: Buffer> Iterator<IoResult<~str>> for Columns<'a, R> {
-    fn next(&mut self) -> Option<IoResult<~str>> {
+impl<'a, R: Buffer> Iterator<IoResult<String>> for Columns<'a, R> {
+    fn next(&mut self) -> Option<IoResult<String>> {
         if self.done {
             return None
         }
@@ -281,9 +281,9 @@ fn write_column(config: &ColumnConfig, writer: &mut Writer, col: &str) -> IoResu
     let padding = config.pad_with.to_str().repeat(config.width - col.len());
     if config.justification == Left {
         try!(writer.write_str(col));
-        writer.write_str(padding)
+        writer.write_str(padding.as_slice())
     } else {
-        try!(writer.write_str(padding));
+        try!(writer.write_str(padding.as_slice()));
         writer.write_str(col)
     }
 }
@@ -302,7 +302,7 @@ pub fn write_row(config: &Config, writer: &mut Writer, row: Row) -> IoResult<()>
                 return Err(ROW_TOO_LONG.clone())
             } else {
                 let padding = " ".repeat(w - written);
-                try!(writer.write_str(padding));
+                try!(writer.write_str(padding.as_slice()));
             }
         }
         Newline(lt) => {
@@ -315,7 +315,7 @@ pub fn write_row(config: &Config, writer: &mut Writer, row: Row) -> IoResult<()>
 /// Write rows from iterator into writer with settings from config
 ///
 /// ```rust
-/// # #[allow(unused_must_use)];
+/// # #![allow(unused_must_use)]
 /// # use std::io::BufferedWriter;
 /// # use std::io::File;
 /// # use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, write_rows};
@@ -328,7 +328,7 @@ pub fn write_row(config: &Config, writer: &mut Writer, row: Row) -> IoResult<()>
 ///     line_end: Newline(LF)
 /// };
 ///
-/// let rows = vec!(vec!("a".to_owned(), "bb".to_owned()), vec!("ccc".to_owned(), "dddd".to_owned()));
+/// let rows = vec!(vec!("a".to_string(), "bb".to_string()), vec!("ccc".to_string(), "dddd".to_string()));
 /// write_rows(config, &mut file, rows.move_iter());
 /// ```
 pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
@@ -341,7 +341,7 @@ pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut row
 /// Helper method for writing rows to a file
 ///
 /// ```rust
-/// # #[allow(unused_must_use)];
+/// # #![allow(unused_must_use)]
 /// # use tabular::fixed::{Config, Newline, LF, ColumnConfig, Left, Right, write_file};
 /// let path = Path::new("path/file.csv");
 ///
@@ -351,7 +351,7 @@ pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut row
 ///     line_end: Newline(LF)
 /// };
 ///
-/// let rows = vec!(vec!("a".to_owned(), "bb".to_owned()), vec!("ccc".to_owned(), "dddd".to_owned()));
+/// let rows = vec!(vec!("a".to_string(), "bb".to_string()), vec!("ccc".to_string(), "dddd".to_string()));
 /// write_file(config, &path, rows.move_iter());
 /// ```
 pub fn write_file<R: Iterator<Row>>(config: Config, path: &Path, rows: R) -> IoResult<()> {
@@ -420,7 +420,7 @@ mod test {
             columns: vec!(COLUMN_1),
             line_end: Newline(CRLF)
         };
-        assert_colmatch(cfg, "aaa", Ok(vec!("aaa".to_owned())));
+        assert_colmatch(cfg, "aaa", Ok(vec!("aaa".to_string())));
     }
 
     #[test]
@@ -429,7 +429,7 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
             line_end: Newline(CRLF)
         };
-        assert_colmatch(cfg, "aaabccccc", Ok(vec!("aaa".to_owned(), "b".to_owned(), "ccccc".to_owned())));
+        assert_colmatch(cfg, "aaabccccc", Ok(vec!("aaa".to_string(), "b".to_string(), "ccccc".to_string())));
     }
 
     #[test]
@@ -438,7 +438,7 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_ZERO, COLUMN_3),
             line_end: Newline(CRLF)
         };
-        assert_colmatch(cfg, "aaaccccc", Ok(vec!("aaa".to_owned(), "".to_owned(), "ccccc".to_owned())));
+        assert_colmatch(cfg, "aaaccccc", Ok(vec!("aaa".to_string(), "".to_string(), "ccccc".to_string())));
     }
 
     #[test]
@@ -447,7 +447,7 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
             line_end: Newline(CRLF)
         };
-        assert_colmatch(cfg, "  a#cccc-", Ok(vec!("a".to_owned(), "".to_owned(), "cccc".to_owned())));
+        assert_colmatch(cfg, "  a#cccc-", Ok(vec!("a".to_string(), "".to_string(), "cccc".to_string())));
     }
 
     #[test]
@@ -456,8 +456,8 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2),
             line_end: Newline(CRLF)
         };
-        assert_colmatch(Config {line_end: Newline(LF), ..cfg.clone()}, "aaab\n", Ok(vec!("aaa".to_owned(), "b".to_owned())));
-        assert_colmatch(cfg, "aaab\r\n", Ok(vec!("aaa".to_owned(), "b".to_owned())));
+        assert_colmatch(Config {line_end: Newline(LF), ..cfg.clone()}, "aaab\n", Ok(vec!("aaa".to_string(), "b".to_string())));
+        assert_colmatch(cfg, "aaab\r\n", Ok(vec!("aaa".to_string(), "b".to_string())));
     }
 
     #[test]
@@ -480,7 +480,7 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2),
             line_end: FixedWidth(10)
         };
-        assert_colmatch(cfg, "aaab      ", Ok(vec!("aaa".to_owned(), "b".to_owned())));
+        assert_colmatch(cfg, "aaab      ", Ok(vec!("aaa".to_string(), "b".to_string())));
     }
 
     #[test]
@@ -515,25 +515,25 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
             line_end: Newline(CRLF)
         };
-        assert_rowmatch(cfg, " aabccc--\r\n  a#-----", vec!(Ok(vec!("aa".to_owned(), "b".to_owned(), "ccc".to_owned())), Ok(vec!("a".to_owned(), "".to_owned(), "".to_owned()))));
+        assert_rowmatch(cfg, " aabccc--\r\n  a#-----", vec!(Ok(vec!("aa".to_string(), "b".to_string(), "ccc".to_string())), Ok(vec!("a".to_string(), "".to_string(), "".to_string()))));
     }
 
     #[test]
-    fn read_lines_with_fixed_columns_and_FF_line_end() {
+    fn read_lines_with_fixed_columns_and_feedforward_line_end() {
         let cfg = Config {
             columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
             line_end: Newline(FF)
         };
-        assert_rowmatch(cfg, " aabccc--\x0c  a#-----", vec!(Ok(vec!("aa".to_owned(), "b".to_owned(), "ccc".to_owned())), Ok(vec!("a".to_owned(), "".to_owned(), "".to_owned()))));
+        assert_rowmatch(cfg, " aabccc--\x0c  a#-----", vec!(Ok(vec!("aa".to_string(), "b".to_string(), "ccc".to_string())), Ok(vec!("a".to_string(), "".to_string(), "".to_string()))));
     }
 
     #[test]
-    fn read_lines_with_fixed_columns_and_LS_line_end() {
+    fn read_lines_with_fixed_columns_and_line_separator_line_end() {
         let cfg = Config {
             columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
             line_end: Newline(LS)
         };
-        assert_rowmatch(cfg, " aabccc--\u2028  a#-----", vec!(Ok(vec!("aa".to_owned(), "b".to_owned(), "ccc".to_owned())), Ok(vec!("a".to_owned(), "".to_owned(), "".to_owned()))));
+        assert_rowmatch(cfg, " aabccc--\u2028  a#-----", vec!(Ok(vec!("aa".to_string(), "b".to_string(), "ccc".to_string())), Ok(vec!("a".to_string(), "".to_string(), "".to_string()))));
     }
 
     #[test]
@@ -542,7 +542,7 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
             line_end: FixedWidth(10)
         };
-        assert_rowmatch(cfg, " aabccc--   a#----- ", vec!(Ok(vec!("aa".to_owned(), "b".to_owned(), "ccc".to_owned())), Ok(vec!("a".to_owned(), "".to_owned(), "".to_owned()))));
+        assert_rowmatch(cfg, " aabccc--   a#----- ", vec!(Ok(vec!("aa".to_string(), "b".to_string(), "ccc".to_string())), Ok(vec!("a".to_string(), "".to_string(), "".to_string()))));
     }
 
     #[test]
@@ -551,13 +551,13 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2, COLUMN_3),
             line_end: Nothing
         };
-        assert_rowmatch(cfg, " aabccc--  a#-----", vec!(Ok(vec!("aa".to_owned(), "b".to_owned(), "ccc".to_owned())), Ok(vec!("a".to_owned(), "".to_owned(), "".to_owned()))));
+        assert_rowmatch(cfg, " aabccc--  a#-----", vec!(Ok(vec!("aa".to_string(), "b".to_string(), "ccc".to_string())), Ok(vec!("a".to_string(), "".to_string(), "".to_string()))));
     }
 
-    fn assert_column_written(config: ColumnConfig, col: ~str, exp: &[u8], exp_res: IoResult<()>) {
+    fn assert_column_written(config: ColumnConfig, col: String, exp: &[u8], exp_res: IoResult<()>) {
         let mut writer = io::MemWriter::new();
         let res = {
-            write_column(&config, &mut writer, col)
+            write_column(&config, &mut writer, col.as_slice())
         };
         assert_eq!(res, exp_res);
         assert_eq!(exp, writer.get_ref());
@@ -565,27 +565,27 @@ mod test {
 
     #[test]
     fn write_zero_width_column() {
-        assert_column_written(COLUMN_ZERO, "".to_owned(), bytes!(""), Ok(()));
+        assert_column_written(COLUMN_ZERO, "".to_string(), bytes!(""), Ok(()));
     }
 
     #[test]
     fn write_fixed_width_column() {
-        assert_column_written(COLUMN_1, "aaa".to_owned(), bytes!("aaa"), Ok(()));
+        assert_column_written(COLUMN_1, "aaa".to_string(), bytes!("aaa"), Ok(()));
     }
 
     #[test]
     fn write_column_with_padding_left() {
-        assert_column_written(COLUMN_1, "a".to_owned(), bytes!("  a"), Ok(()));
+        assert_column_written(COLUMN_1, "a".to_string(), bytes!("  a"), Ok(()));
     }
 
     #[test]
     fn write_column_with_padding_right() {
-        assert_column_written(COLUMN_3, "cc".to_owned(), bytes!("cc---"), Ok(()));
+        assert_column_written(COLUMN_3, "cc".to_string(), bytes!("cc---"), Ok(()));
     }
 
     #[test]
     fn write_error_on_column_data_too_long() {
-        assert_column_written(COLUMN_3, "cccccc".to_owned(), bytes!(""), Err(COLUMN_TOO_LONG.clone()));
+        assert_column_written(COLUMN_3, "cccccc".to_string(), bytes!(""), Err(COLUMN_TOO_LONG.clone()));
     }
 
     #[test]
@@ -596,7 +596,7 @@ mod test {
         };
         let mut writer = io::MemWriter::new();
         let res = {
-            let row = vec!("aaa".to_owned(), "b".to_owned());
+            let row = vec!("aaa".to_string(), "b".to_string());
             write_row(&config, &mut writer, row)
         };
         assert_eq!(res, Ok(()));
@@ -611,7 +611,7 @@ mod test {
         };
         let mut writer = io::MemWriter::new();
         let res = {
-            let row = vec!("aaa".to_owned(), "b".to_owned());
+            let row = vec!("aaa".to_string(), "b".to_string());
             write_row(&config, &mut writer, row)
         };
         assert_eq!(res, Err(ROW_TOO_LONG.clone()));
@@ -633,7 +633,7 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2),
             line_end: FixedWidth(6)
         };
-        let rows = vec!(vec!("a".to_owned(), "".to_owned()), vec!("aaa".to_owned(), "b".to_owned()));
+        let rows = vec!(vec!("a".to_string(), "".to_string()), vec!("aaa".to_string(), "b".to_string()));
         assert_lines_written(cfg, rows, bytes!("  a#  aaab  "), Ok(()));
     }
 
@@ -643,7 +643,7 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2),
             line_end: Newline(LF)
         };
-        let rows = vec!(vec!("a".to_owned(), "".to_owned()), vec!("aaa".to_owned(), "b".to_owned()));
+        let rows = vec!(vec!("a".to_string(), "".to_string()), vec!("aaa".to_string(), "b".to_string()));
         assert_lines_written(cfg, rows, bytes!("  a#\naaab\n"), Ok(()));
     }
 
@@ -653,7 +653,7 @@ mod test {
             columns: vec!(COLUMN_1, COLUMN_2),
             line_end: Nothing
         };
-        let rows = vec!(vec!("a".to_owned(), "".to_owned()), vec!("aaa".to_owned(), "b".to_owned()));
+        let rows = vec!(vec!("a".to_string(), "".to_string()), vec!("aaa".to_string(), "b".to_string()));
         assert_lines_written(cfg, rows, bytes!("  a#aaab"), Ok(()));
     }
 }

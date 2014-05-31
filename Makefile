@@ -5,7 +5,7 @@ BUILDDIR = build
 TESTDIR = $(BUILDDIR)/test
 EXAMPLEDIR = $(BUILDDIR)/examples
 
-all: $(BUILDDIR) test lib docs
+all: $(BUILDDIR) test lib docs examples
 
 $(BUILDDIR):
 	mkdir -p $@
