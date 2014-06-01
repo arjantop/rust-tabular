@@ -1,4 +1,3 @@
-
 // Copyright 2014 Arjan Topolovec
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -33,7 +32,6 @@
 #![crate_id = "tabular"]
 #![license = "MIT/ASL2"]
 #![crate_type = "lib"]
-#![deny(warnings)]
 
 mod common;
 
