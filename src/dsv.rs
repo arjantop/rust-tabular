@@ -195,8 +195,10 @@ impl<'a, R: Buffer> Columns<'a, R> {
                     }
                     curr = self.read_char();
                 }
-                Err(err) => return self.check_eof(err, self.column > 0, col.into_string())
-            }
+                Err(err) => {
+                    let allow_empty = self.column > 0;
+                    return self.check_eof(err, allow_empty, col.into_string())
+                }            }
         }
         Ok(col.into_string())
     }

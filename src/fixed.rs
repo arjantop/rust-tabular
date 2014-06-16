@@ -113,7 +113,8 @@ impl<'a, R: Buffer> Columns<'a, R> {
     }
 
     fn read_fixed_width(&mut self, width: uint) -> IoResult<()> {
-        try!(self.read_str(width - self.pos));
+        let current_pos = self.pos;
+        try!(self.read_str(width - current_pos));
         Ok(())
     }
 }
