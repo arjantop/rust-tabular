@@ -701,36 +701,36 @@ mod test {
 
     #[test]
     fn written_column_is_not_quoted() {
-        assert_column_written(CSV, "foo".to_string(), bytes!("foo"), Ok(()));
-        assert_column_written(Config {quote: Never, ..CSV}, "foo".to_string(), bytes!("foo"), Ok(()));
+        assert_column_written(CSV, "foo".to_string(), b"foo", Ok(()));
+        assert_column_written(Config {quote: Never, ..CSV}, "foo".to_string(), b"foo", Ok(()));
     }
 
     #[test]
     fn written_column_is_quoted() {
-        assert_column_written(CSV, "fo,o".to_string(), bytes!("\"fo,o\""), Ok(()));
-        assert_column_written(CSV, "f\ro".to_string(), bytes!("\"f\ro\""), Ok(()));
-        assert_column_written(Config {quote: Always, ..CSV}, "bar".to_string(), bytes!("\"bar\""), Ok(()));
+        assert_column_written(CSV, "fo,o".to_string(), b"\"fo,o\"", Ok(()));
+        assert_column_written(CSV, "f\ro".to_string(), b"\"f\ro\"", Ok(()));
+        assert_column_written(Config {quote: Always, ..CSV}, "bar".to_string(), b"\"bar\"", Ok(()));
     }
 
     #[test]
     fn error_on_writing_value_that_should_be_quoted() {
-        assert_column_written(Config {quote: Never, ..DELIM_PIPE}, "a|b".to_string(), bytes!(""), Err(MUST_QUOTE.clone()))
+        assert_column_written(Config {quote: Never, ..DELIM_PIPE}, "a|b".to_string(), b"", Err(MUST_QUOTE.clone()))
     }
 
     #[test]
     fn written_column_containing_quote_char_is_quoted() {
-        assert_column_written(CSV, "Hello, \"world\"".to_string(), bytes!("\"Hello, \"\"world\"\"\""), Ok(()));
-        assert_column_written(Config {escape: Char('!'), ..QUOTE_TILDE}, "Hello, ~world~".to_string(), bytes!("~Hello, !~world!~~"), Ok(()));
+        assert_column_written(CSV, "Hello, \"world\"".to_string(), b"\"Hello, \"\"world\"\"\"", Ok(()));
+        assert_column_written(Config {escape: Char('!'), ..QUOTE_TILDE}, "Hello, ~world~".to_string(), b"~Hello, !~world!~~", Ok(()));
     }
 
     #[test]
     fn error_when_writing_quoted_column_with_escape_disallowed() {
-        assert_column_written(Config {escape: Disallowed, ..QUOTE_TILDE}, "Hello, ~world~".to_string(), bytes!("~Hello, "), Err(ESCAPE_DISALLOWED.clone()));
+        assert_column_written(Config {escape: Disallowed, ..QUOTE_TILDE}, "Hello, ~world~".to_string(), b"~Hello, ", Err(ESCAPE_DISALLOWED.clone()));
     }
 
     #[test]
     fn writen_quoted_column_can_not_cantain_escape_char() {
-        assert_column_written(Config {escape: Char('?'), quote: Always, ..CSV}, "Hello?".to_string(), bytes!("\"Hello"), Err(ESCAPE_CHAR_IN_QUOTE.clone()));
+        assert_column_written(Config {escape: Char('?'), quote: Always, ..CSV}, "Hello?".to_string(), b"\"Hello", Err(ESCAPE_CHAR_IN_QUOTE.clone()));
     }
 
     #[test]
@@ -741,7 +741,7 @@ mod test {
             write_row(CSV, &mut writer, rows)
         };
         assert_eq!(Ok(()), res);
-        assert_eq!(bytes!("foo,bar\r\n"), writer.get_ref());
+        assert_eq!(b"foo,bar\r\n", writer.get_ref());
     }
 
     #[test]
@@ -752,7 +752,7 @@ mod test {
             write_rows(DELIM_PIPE, &mut writer, rows.move_iter())
         };
         assert_eq!(Ok(()), res);
-        assert_eq!(bytes!("foo|\"b|ar\"\r\n\"b\r\naz\"|qux\r\n"), writer.get_ref());
+        assert_eq!(b"foo|\"b|ar\"\r\n\"b\r\naz\"|qux\r\n", writer.get_ref());
     }
 }
 

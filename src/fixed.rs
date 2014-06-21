@@ -566,27 +566,27 @@ mod test {
 
     #[test]
     fn write_zero_width_column() {
-        assert_column_written(COLUMN_ZERO, "".to_string(), bytes!(""), Ok(()));
+        assert_column_written(COLUMN_ZERO, "".to_string(), b"", Ok(()));
     }
 
     #[test]
     fn write_fixed_width_column() {
-        assert_column_written(COLUMN_1, "aaa".to_string(), bytes!("aaa"), Ok(()));
+        assert_column_written(COLUMN_1, "aaa".to_string(), b"aaa", Ok(()));
     }
 
     #[test]
     fn write_column_with_padding_left() {
-        assert_column_written(COLUMN_1, "a".to_string(), bytes!("  a"), Ok(()));
+        assert_column_written(COLUMN_1, "a".to_string(), b"  a", Ok(()));
     }
 
     #[test]
     fn write_column_with_padding_right() {
-        assert_column_written(COLUMN_3, "cc".to_string(), bytes!("cc---"), Ok(()));
+        assert_column_written(COLUMN_3, "cc".to_string(), b"cc---", Ok(()));
     }
 
     #[test]
     fn write_error_on_column_data_too_long() {
-        assert_column_written(COLUMN_3, "cccccc".to_string(), bytes!(""), Err(COLUMN_TOO_LONG.clone()));
+        assert_column_written(COLUMN_3, "cccccc".to_string(), b"", Err(COLUMN_TOO_LONG.clone()));
     }
 
     #[test]
@@ -601,7 +601,7 @@ mod test {
             write_row(&config, &mut writer, row)
         };
         assert_eq!(res, Ok(()));
-        assert_eq!(writer.get_ref(), bytes!("aaab\r\n"));
+        assert_eq!(writer.get_ref(), b"aaab\r\n");
     }
 
     #[test]
@@ -616,7 +616,7 @@ mod test {
             write_row(&config, &mut writer, row)
         };
         assert_eq!(res, Err(ROW_TOO_LONG.clone()));
-        assert_eq!(writer.get_ref(), bytes!("aaab"));
+        assert_eq!(writer.get_ref(), b"aaab");
     }
 
     fn assert_lines_written(config: Config, rows: Vec<Row>, exp: &[u8], exp_res: IoResult<()>) {
@@ -635,7 +635,7 @@ mod test {
             line_end: FixedWidth(6)
         };
         let rows = vec!(vec!("a".to_string(), "".to_string()), vec!("aaa".to_string(), "b".to_string()));
-        assert_lines_written(cfg, rows, bytes!("  a#  aaab  "), Ok(()));
+        assert_lines_written(cfg, rows, b"  a#  aaab  ", Ok(()));
     }
 
     #[test]
@@ -645,7 +645,7 @@ mod test {
             line_end: Newline(LF)
         };
         let rows = vec!(vec!("a".to_string(), "".to_string()), vec!("aaa".to_string(), "b".to_string()));
-        assert_lines_written(cfg, rows, bytes!("  a#\naaab\n"), Ok(()));
+        assert_lines_written(cfg, rows, b"  a#\naaab\n", Ok(()));
     }
 
     #[test]
@@ -655,6 +655,6 @@ mod test {
             line_end: Nothing
         };
         let rows = vec!(vec!("a".to_string(), "".to_string()), vec!("aaa".to_string(), "b".to_string()));
-        assert_lines_written(cfg, rows, bytes!("  a#aaab"), Ok(()));
+        assert_lines_written(cfg, rows, b"  a#aaab", Ok(()));
     }
 }
