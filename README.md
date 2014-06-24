@@ -7,10 +7,14 @@ Reading and writing of tabular data.
 - DSV (Delimiter-separated values): CSV (comma-separated values), TSV (tab-separated values)
 - Fixed width: formats with columns of fixed width
 
-```
-git clone https://github.com/arjantop/rust-tabular
-cd rust-tabular
-make
+## Using the library
+
+Add this to your Cargo.toml:
+
+```toml
+[dependencies.tabular]
+
+git = "https://github.com/arjantop/rust-tabular.git"
 ```
 
 ## Example
@@ -55,3 +59,11 @@ for row in read_rows(config, file) {
 ## Documentation
 
 API documentation on [rust-ci.org](http://www.rust-ci.org/arjantop/rust-tabular/doc/tabular/)
+
+## Contributing
+
+```
+git clone https://github.com/arjantop/rust-tabular
+cd rust-tabular
+make
+```
