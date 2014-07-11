@@ -29,7 +29,7 @@
 //!
 //! There is no support for Encoder and Decoder api currently (or similar) but library is designed for such extension in the future.
 //! Currently best way to achieve similar functionality is mapping a custom decoder over the Rows iterator.
-#![crate_id = "tabular"]
+#![crate_name = "tabular"]
 #![license = "MIT/ASL2"]
 #![crate_type = "lib"]
 

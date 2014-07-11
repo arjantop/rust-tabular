@@ -279,7 +279,7 @@ fn write_column(config: &ColumnConfig, writer: &mut Writer, col: &str) -> IoResu
     if col.len() > config.width {
         return Err(COLUMN_TOO_LONG.clone())
     }
-    let padding = config.pad_with.to_str().repeat(config.width - col.len());
+    let padding = config.pad_with.to_string().repeat(config.width - col.len());
     if config.justification == Left {
         try!(writer.write_str(col));
         writer.write_str(padding.as_slice())

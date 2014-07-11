@@ -2,13 +2,11 @@ env:
   global:
     - secure: krUYslQOc4ez/M/yoffWCAZr+r85dc+iKVzprotT1/DHDN+yOwBt+hDMbeP1Lff8kmDc5SNZJTNbMuOOIreC7hFhmvv328sM1NdOZW+KTdZnj00gozP1/YLWuHw4mQ6246hxCOzBXdDrnvj9KA++u2jb55CBzFYM+rXgJlKNnfE=
 before_install:
-  - curl -O http://static.rust-lang.org/dist/rust-nightly-x86_64-unknown-linux-gnu.tar.gz
-  - tar xzf rust-nightly-x86_64-unknown-linux-gnu.tar.gz
+  - yes | sudo add-apt-repository ppa:hansjorg/rust
   - yes | sudo add-apt-repository ppa:cmrx64/cargo
   - sudo apt-get update
 install:
-  - sudo apt-get install cargo
-  - sudo ./rust-nightly-x86_64-unknown-linux-gnu/install.sh
+  - sudo apt-get install cargo rust-nightly
 script:
   - rustc --version
   - make
