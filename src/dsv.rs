@@ -70,7 +70,7 @@ impl Config {
     }
 }
 
-struct Columns<'a, R> {
+struct Columns<'a, R: 'a> {
     reader: &'a mut R,
     config: Config,
     row_done: bool,

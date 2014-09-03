@@ -46,7 +46,7 @@ pub struct Config {
     pub line_end: LineEnding,
 }
 
-struct Columns<'a, R> {
+struct Columns<'a, R: 'a> {
     reader: &'a mut R,
     config: Config,
     column: uint,
@@ -124,7 +124,7 @@ impl<'a, R: Buffer> Iterator<IoResult<String>> for Columns<'a, R> {
         if self.done {
             return None
         }
-        let cfg = self.config.columns.get(self.column).clone();
+        let cfg = self.config.columns[self.column].clone();
         self.column += 1;
         let col = match self.read_column(cfg) {
             Ok(col) => Ok(col),
