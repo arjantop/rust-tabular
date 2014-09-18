@@ -424,7 +424,7 @@ pub fn write_row(config: Config, writer: &mut Writer, row: Row) -> IoResult<()> 
 /// let mut file = BufferedWriter::new(File::open(&path));
 ///
 /// let rows = vec!(vec!("a".to_string(), "bb".to_string()), vec!("ccc".to_string(), "dddd".to_string()));
-/// write_rows(CSV, &mut file, rows.move_iter());
+/// write_rows(CSV, &mut file, rows.into_iter());
 /// ```
 pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
     for row in rows {
@@ -440,7 +440,7 @@ pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut row
 /// # use tabular::dsv::{write_file, CSV};
 /// let rows = vec!(vec!("a".to_string(), "bb".to_string()), vec!("ccc".to_string(), "dddd".to_string()));
 /// let path = Path::new("path/file.csv");
-/// write_file(CSV, &path, rows.move_iter());
+/// write_file(CSV, &path, rows.into_iter());
 /// ```
 pub fn write_file<R: Iterator<Row>>(config: Config, path: &Path, rows: R) -> IoResult<()> {
     let mut file = io::BufferedWriter::new(io::File::open_mode(path, io::Open, io::Write));
@@ -749,7 +749,7 @@ mod test {
         let mut writer = io::MemWriter::new();
         let res = {
             let rows = vec!(vec!("foo".to_string(), "b|ar".to_string()), vec!("b\r\naz".to_string(), "qux".to_string()));
-            write_rows(DELIM_PIPE, &mut writer, rows.move_iter())
+            write_rows(DELIM_PIPE, &mut writer, rows.into_iter())
         };
         assert_eq!(Ok(()), res);
         assert_eq!(b"foo|\"b|ar\"\r\n\"b\r\naz\"|qux\r\n", writer.get_ref());

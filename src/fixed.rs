@@ -330,7 +330,7 @@ pub fn write_row(config: &Config, writer: &mut Writer, row: Row) -> IoResult<()>
 /// };
 ///
 /// let rows = vec!(vec!("a".to_string(), "bb".to_string()), vec!("ccc".to_string(), "dddd".to_string()));
-/// write_rows(config, &mut file, rows.move_iter());
+/// write_rows(config, &mut file, rows.into_iter());
 /// ```
 pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut rows: R) -> IoResult<()> {
     for row in rows {
@@ -353,7 +353,7 @@ pub fn write_rows<R: Iterator<Row>>(config: Config, writer: &mut Writer, mut row
 /// };
 ///
 /// let rows = vec!(vec!("a".to_string(), "bb".to_string()), vec!("ccc".to_string(), "dddd".to_string()));
-/// write_file(config, &path, rows.move_iter());
+/// write_file(config, &path, rows.into_iter());
 /// ```
 pub fn write_file<R: Iterator<Row>>(config: Config, path: &Path, rows: R) -> IoResult<()> {
     let mut file = io::BufferedWriter::new(io::File::open_mode(path, io::Open, io::Write));
@@ -622,7 +622,7 @@ mod test {
     fn assert_lines_written(config: Config, rows: Vec<Row>, exp: &[u8], exp_res: IoResult<()>) {
         let mut writer = io::MemWriter::new();
         let res = {
-            write_rows(config, &mut writer, rows.move_iter())
+            write_rows(config, &mut writer, rows.into_iter())
         };
         assert_eq!(res, exp_res);
         assert_eq!(writer.get_ref(), exp);
